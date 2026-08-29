@@ -149,6 +149,37 @@ export async function refreshSession(sessionId: number, file: File) {
   });
 }
 
+export interface ReconcilePreviewRow {
+  owner: string;
+  missing: string[];
+  previousMissing: string[];
+  note: string;
+}
+
+export interface ReconcilePreview {
+  added: ReconcilePreviewRow[];
+  resolved: ReconcilePreviewRow[];
+  updated: ReconcilePreviewRow[];
+  unchanged: number;
+}
+
+/** 上传最新版前先预览差异，只读不落库，由用户确认后再调用 refreshSession 应用。 */
+export async function previewRefreshSession(sessionId: number, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  return request<ReconcilePreview>(`/api/analysis-sessions/${sessionId}/refresh-preview`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+/** 确认应用预览：复用预览阶段的分析结果执行对账，不再重复调用模型，速度远快于 refreshSession。 */
+export async function confirmRefreshSession(sessionId: number) {
+  return request<BackendSessionDetail>(`/api/analysis-sessions/${sessionId}/refresh/confirm`, {
+    method: "POST",
+  });
+}
+
 export interface AiSettingsView {
   enabled: boolean;
   baseUrl: string;
@@ -184,11 +215,31 @@ export async function testAiSettings(payload: AiSettingsPayload) {
   });
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, init);
+/** 删除催办任务。后端返回 204，没有响应体，因此不走通用 request。 */
+export async function deleteSession(sessionId: number) {
+  const response = await fetch(`${apiBase}/api/analysis-sessions/${sessionId}`, { method: "DELETE" });
   if (!response.ok) {
     const body = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(body.message || "接口请求失败");
+    throw new Error(body.message || "删除失败");
   }
-  return response.json() as Promise<T>;
+}
+
+async function request<T>(path: string, init?: RequestInit, timeoutMs = 90_000): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${apiBase}${path}`, { ...init, signal: controller.signal });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(body.message || "接口请求失败");
+    }
+    return response.json() as Promise<T>;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("请求超时，请稍后重试");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }

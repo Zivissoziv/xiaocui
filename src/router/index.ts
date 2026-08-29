@@ -1,11 +1,22 @@
 import { createRouter, createWebHashHistory } from "vue-router";
+import AppLayout from "../layouts/AppLayout.vue";
 import ConsoleView from "../views/ConsoleView.vue";
+import NewTaskView from "../views/NewTaskView.vue";
+import SettingsView from "../views/SettingsView.vue";
 import TaskDetailView from "../views/TaskDetailView.vue";
 
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: "/", name: "console", component: ConsoleView },
-    { path: "/tasks/:id", name: "task-detail", component: TaskDetailView, props: true },
+    {
+      path: "/",
+      component: AppLayout,
+      children: [
+        { path: "", name: "console", component: ConsoleView },
+        { path: "tasks/new", name: "new-task", component: NewTaskView },
+        { path: "settings", name: "settings", component: SettingsView },
+        { path: "tasks/:id", name: "task-detail", component: TaskDetailView, props: true },
+      ],
+    },
   ],
 });

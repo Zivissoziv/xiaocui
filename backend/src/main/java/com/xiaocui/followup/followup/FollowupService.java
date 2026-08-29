@@ -102,6 +102,48 @@ public class FollowupService {
         }
     }
 
+    /**
+     * 对账预览：与 {@link #reconcile} 使用相同的比对规则，但只读不写库，
+     * 返回新增/补齐/变化/无变化四类差异，供前端展示后由用户决定是否执行更新。
+     */
+    public ReconcilePreview previewReconcile(long sessionId, AiAnalysisResult analysis) {
+        Map<String, FollowupItem> existingByOwner = new LinkedHashMap<>();
+        for (FollowupItem item : repository.getItems(sessionId)) {
+            existingByOwner.putIfAbsent(item.displayName(), item);
+        }
+
+        List<ReconcilePreview.RowDiff> added = new ArrayList<>();
+        List<ReconcilePreview.RowDiff> updated = new ArrayList<>();
+        Set<String> stillMissing = new LinkedHashSet<>();
+        int unchanged = 0;
+
+        for (FollowupDraft draft : analysis.followupItems()) {
+            stillMissing.add(draft.ownerRaw());
+            FollowupItem current = existingByOwner.get(draft.ownerRaw());
+            if (current == null) {
+                added.add(new ReconcilePreview.RowDiff(
+                        draft.ownerRaw(), draft.missingFields(), List.of(), "新出现的待补充对象"));
+                continue;
+            }
+            if ("resolved".equals(current.status())) continue;
+            if (current.missingFields().equals(draft.missingFields())) {
+                unchanged++;
+            } else {
+                updated.add(new ReconcilePreview.RowDiff(
+                        draft.ownerRaw(), draft.missingFields(), current.missingFields(), "缺项内容有变化"));
+            }
+        }
+
+        List<ReconcilePreview.RowDiff> resolved = new ArrayList<>();
+        for (FollowupItem item : existingByOwner.values()) {
+            if (stillMissing.contains(item.displayName())) continue;
+            if ("resolved".equals(item.status())) continue;
+            resolved.add(new ReconcilePreview.RowDiff(
+                    item.displayName(), List.of(), item.missingFields(), "已补充完整，将标记完成"));
+        }
+        return new ReconcilePreview(added, resolved, updated, unchanged);
+    }
+
     private FollowupItem buildItem(long sessionId, FollowupDraft draft, ContactMatch match, String dueAt) {
         String itemStatus = "needs_confirmation".equals(match.matchStatus()) ? "needs_manual_review" : "ready_to_send";
         return new FollowupItem(
@@ -196,7 +238,9 @@ public class FollowupService {
         for (FollowupTask task : repository.getTasks(sessionId)) {
             if (!selected.isEmpty() && !selected.contains(task.followupItemId())) continue;
             FollowupItem item = findItem(task.followupItemId());
-            if (!item.status().equals("ready_to_send") || task.status().equals("sent")) continue;
+            // 只允许有联系方式的待发送/已发送对象；异常（无联系方式）和已补充完整的不再发送。
+            // 已发送过的允许再次催办，每次都会新增一条留痕。
+            if (!item.status().equals("ready_to_send") && !item.status().equals("sent")) continue;
             FollowupTask sent = task.sentNow();
             repository.replaceTask(sent);
             repository.replaceItem(item.withStatus("sent"));

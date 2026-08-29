@@ -171,6 +171,21 @@ public interface SessionMapper {
     @Delete("DELETE FROM followup_items WHERE session_id = #{sessionId}")
     void deleteItems(@Param("sessionId") long sessionId);
 
+    @Delete("DELETE FROM reminder_events WHERE session_id = #{sessionId}")
+    void deleteEvents(@Param("sessionId") long sessionId);
+
+    @Delete("DELETE FROM contact_matches WHERE session_id = #{sessionId}")
+    void deleteContactMatches(@Param("sessionId") long sessionId);
+
+    @Delete("DELETE FROM ai_table_analyses WHERE session_id = #{sessionId}")
+    void deleteAnalyses(@Param("sessionId") long sessionId);
+
+    @Delete("DELETE FROM sheet_snapshots WHERE session_id = #{sessionId}")
+    void deleteSnapshots(@Param("sessionId") long sessionId);
+
+    @Delete("DELETE FROM analysis_sessions WHERE id = #{sessionId}")
+    void deleteSession(@Param("sessionId") long sessionId);
+
     @Insert("""
             INSERT INTO followup_tasks
               (id, session_id, followup_item_id, recipient_id, channel, message_draft, message_final,

@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import {
+  confirmRefreshSession,
   fetchSessionDetail,
   fetchSessionDetails,
   refreshSession,
@@ -128,10 +129,32 @@ export const useFollowupStore = defineStore("followup", {
       }
     },
 
+    /** 确认应用预览：复用预览阶段的分析结果执行对账，不再重复解析和调用模型。 */
+    async confirmRefresh(id: number) {
+      this.loading = true;
+      this.error = "";
+      try {
+        const detail = await confirmRefreshSession(id);
+        this.upsertSessionDetail(detail);
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : "更新失败";
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     applyDetails(details: BackendSessionDetail[]) {
       for (const detail of details) {
         this.upsertSessionDetail(detail);
       }
+    },
+
+    /** 删除一个催办任务及其人员明细、发送留痕。 */
+    removeTask(id: number) {
+      this.tasks = this.tasks.filter((task) => task.id !== id);
+      this.people = this.people.filter((person) => person.taskId !== id);
+      this.reminderEvents = this.reminderEvents.filter((event) => event.taskId !== id);
     },
 
     upsertSessionDetail(detail: BackendSessionDetail) {

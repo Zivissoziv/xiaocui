@@ -165,6 +165,18 @@ public class MyBatisSessionRepository implements SessionRepository {
 
     @Override
     @Transactional
+    public void deleteSession(long sessionId) {
+        mapper.deleteEvents(sessionId);
+        mapper.deleteTasks(sessionId);
+        mapper.deleteItems(sessionId);
+        mapper.deleteContactMatches(sessionId);
+        mapper.deleteAnalyses(sessionId);
+        mapper.deleteSnapshots(sessionId);
+        mapper.deleteSession(sessionId);
+    }
+
+    @Override
+    @Transactional
     public void addEvent(ReminderEvent event) {
         mapper.insertEvent(toRow(event));
     }

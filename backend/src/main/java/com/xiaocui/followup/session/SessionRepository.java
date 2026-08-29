@@ -54,4 +54,7 @@ public interface SessionRepository {
     Optional<FollowupItem> findItem(long itemId);
 
     Optional<FollowupTask> findTaskByItem(long sessionId, long itemId);
+
+    /** 删除整个催办会话及其全部关联数据（事项、任务、留痕、快照、分析记录）。 */
+    void deleteSession(long sessionId);
 }

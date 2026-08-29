@@ -1,6 +1,7 @@
 package com.xiaocui.followup.api;
 
 import com.xiaocui.followup.followup.FollowupService;
+import com.xiaocui.followup.followup.ReconcilePreview;
 import com.xiaocui.followup.followup.SendRequest;
 import com.xiaocui.followup.followup.SessionDetail;
 import com.xiaocui.followup.followup.UpdateFollowupItemRequest;
@@ -12,6 +13,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,6 +68,12 @@ public class FollowupController {
         return sessionService.detail(sessionId);
     }
 
+    @DeleteMapping("/analysis-sessions/{sessionId}")
+    public void deleteSession(@PathVariable long sessionId) {
+        repository.findSession(sessionId).orElseThrow(() -> new IllegalArgumentException("会话不存在"));
+        repository.deleteSession(sessionId);
+    }
+
     @GetMapping("/analysis-sessions/{sessionId}/analysis")
     public Object getAnalysis(@PathVariable long sessionId) {
         return repository.getAnalysis(sessionId);
@@ -89,6 +97,16 @@ public class FollowupController {
     @PostMapping(value = "/analysis-sessions/{sessionId}/refresh", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public SessionDetail refresh(@PathVariable long sessionId, @RequestParam("file") MultipartFile file) {
         return sessionService.refresh(sessionId, file);
+    }
+
+    @PostMapping(value = "/analysis-sessions/{sessionId}/refresh-preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ReconcilePreview refreshPreview(@PathVariable long sessionId, @RequestParam("file") MultipartFile file) {
+        return sessionService.previewRefresh(sessionId, file);
+    }
+
+    @PostMapping("/analysis-sessions/{sessionId}/refresh/confirm")
+    public SessionDetail confirmRefresh(@PathVariable long sessionId) {
+        return sessionService.confirmRefresh(sessionId);
     }
 
     @GetMapping("/analysis-sessions/{sessionId}/reminder-events")
