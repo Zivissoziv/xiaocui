@@ -1,7 +1,14 @@
 import { defineStore } from "pinia";
+import {
+  fetchSessionDetail,
+  fetchSessionDetails,
+  refreshSession,
+  type BackendSessionDetail,
+} from "../services/followupApi";
 
 export type TaskStatus = "进行中" | "有异常" | "已完成";
 export type PersonStatus = "待处理" | "异常" | "已完成";
+export type SendStatus = "待发送" | "已发送" | "已关闭";
 
 export interface FollowupTask {
   id: number;
@@ -17,255 +24,203 @@ export interface FollowupTask {
   done: number;
   manual: number;
   rows: number;
+  sent: number;
   lastRefresh: string;
+  createdAt: string;
+  sheetName: string;
+  tableSummary: string;
+  risks: string[];
 }
 
 export interface FollowupPerson {
   id: number;
   taskId: number;
+  backendTaskId?: number;
   name: string;
   employee: string;
   department: string;
+  email: string;
+  phone: string;
   missing: string[];
   sourceRows: string;
   status: PersonStatus;
   project: string;
+  matchStatus: "matched" | "needs_confirmation";
+  messageDraft: string;
+  messageFinal: string;
+  sendStatus: SendStatus;
+  sentAt: string;
 }
 
-export interface AppSettings {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
-  channel: "wecom" | "dingtalk" | "feishu" | "email" | "manual";
+export interface ReminderEvent {
+  id: number;
+  taskId: number;
+  personId: number;
+  recipient: string;
+  channel: string;
+  messageSnapshot: string;
+  status: "sent" | "failed";
+  sentAt: string;
 }
-
-export interface CreateTaskInput {
-  title: string;
-  file: string;
-  owner: string;
-  due: string;
-  instruction: string;
-}
-
-const tasks: FollowupTask[] = [
-  {
-    id: 1,
-    title: "项目合同信息收集催办",
-    file: "项目合同信息收集.xlsx",
-    owner: "经营管理部",
-    due: "明天 18:00",
-    instruction: "催还没补合同金额和预计完成时间的人",
-    fields: ["合同金额", "预计完成时间"],
-    status: "进行中",
-    completion: 73,
-    pending: 18,
-    done: 21,
-    manual: 5,
-    rows: 42,
-    lastRefresh: "今天 15:42",
-  },
-  {
-    id: 2,
-    title: "审计材料缺项催办",
-    file: "审计材料清单.xlsx",
-    owner: "审计部",
-    due: "周五 17:00",
-    instruction: "催缺少附件和负责人确认的人",
-    fields: ["附件链接", "确认状态"],
-    status: "有异常",
-    completion: 46,
-    pending: 27,
-    done: 19,
-    manual: 12,
-    rows: 63,
-    lastRefresh: "今天 14:10",
-  },
-  {
-    id: 3,
-    title: "月度经营数据催办",
-    file: "月度经营数据.xlsx",
-    owner: "战略运营部",
-    due: "今天 18:00",
-    instruction: "催未填收入和成本的人",
-    fields: ["收入", "成本"],
-    status: "进行中",
-    completion: 82,
-    pending: 11,
-    done: 52,
-    manual: 3,
-    rows: 24,
-    lastRefresh: "今天 13:56",
-  },
-  {
-    id: 4,
-    title: "制度确认回收",
-    file: "制度确认名单.xlsx",
-    owner: "人力资源部",
-    due: "9 月 2 日 12:00",
-    instruction: "催未确认制度阅读的人",
-    fields: ["确认状态"],
-    status: "已完成",
-    completion: 100,
-    pending: 0,
-    done: 86,
-    manual: 0,
-    rows: 0,
-    lastRefresh: "昨天 18:20",
-  },
-  {
-    id: 5,
-    title: "活动报名信息补全",
-    file: "活动报名汇总.xlsx",
-    owner: "品牌部",
-    due: "9 月 1 日 18:00",
-    instruction: "催缺手机号和到场时间的人",
-    fields: ["手机号", "到场时间"],
-    status: "进行中",
-    completion: 64,
-    pending: 15,
-    done: 28,
-    manual: 4,
-    rows: 31,
-    lastRefresh: "今天 11:08",
-  },
-];
-
-const people: FollowupPerson[] = [
-  {
-    id: 1,
-    taskId: 1,
-    name: "张三",
-    employee: "A1024",
-    department: "华东销售部",
-    missing: ["合同金额", "预计完成时间"],
-    sourceRows: "12, 18",
-    status: "待处理",
-    project: "续约项目 A，新增项目 B",
-  },
-  {
-    id: 2,
-    taskId: 1,
-    name: "李明",
-    employee: "待确认",
-    department: "产品一部",
-    missing: ["合同金额"],
-    sourceRows: "22",
-    status: "异常",
-    project: "集成项目 C",
-  },
-  {
-    id: 3,
-    taskId: 1,
-    name: "赵敏",
-    employee: "A1187",
-    department: "华北运营部",
-    missing: ["预计完成时间"],
-    sourceRows: "31, 33",
-    status: "待处理",
-    project: "巡检项目 E，巡检项目 F",
-  },
-  {
-    id: 4,
-    taskId: 1,
-    name: "王五",
-    employee: "A0931",
-    department: "华南交付部",
-    missing: [],
-    sourceRows: "35",
-    status: "已完成",
-    project: "存量项目 D",
-  },
-  {
-    id: 5,
-    taskId: 1,
-    name: "陈晨",
-    employee: "A2260",
-    department: "财务共享中心",
-    missing: ["合同金额"],
-    sourceRows: "41",
-    status: "待处理",
-    project: "结算项目 G",
-  },
-  {
-    id: 6,
-    taskId: 1,
-    name: "刘洋",
-    employee: "A1872",
-    department: "华东销售部",
-    missing: ["预计完成时间"],
-    sourceRows: "48",
-    status: "待处理",
-    project: "拓展项目 H",
-  },
-  {
-    id: 7,
-    taskId: 1,
-    name: "周倩",
-    employee: "待确认",
-    department: "供应链管理部",
-    missing: ["合同金额"],
-    sourceRows: "57",
-    status: "异常",
-    project: "采购项目 I",
-  },
-];
 
 export const useFollowupStore = defineStore("followup", {
   state: () => ({
-    tasks,
-    people,
-    settings: {
-      apiKey: "",
-      baseUrl: "https://llm.internal.example.com/v1",
-      model: "internal-chat-model",
-      channel: "wecom",
-    } as AppSettings,
+    tasks: [] as FollowupTask[],
+    people: [] as FollowupPerson[],
+    reminderEvents: [] as ReminderEvent[],
+    loading: false,
+    loaded: false,
+    error: "",
   }),
   getters: {
     taskById: (state) => (id: number) => state.tasks.find((task) => task.id === id),
     peopleByTask: (state) => (taskId: number) => state.people.filter((person) => person.taskId === taskId),
     totalPending: (state) => state.tasks.reduce((sum, task) => sum + task.pending, 0),
     totalManual: (state) => state.tasks.reduce((sum, task) => sum + task.manual, 0),
-    averageCompletion: (state) => Math.round(state.tasks.reduce((sum, task) => sum + task.completion, 0) / state.tasks.length),
+    totalSent: (state) => state.tasks.reduce((sum, task) => sum + task.sent, 0),
+    activeCount: (state) => state.tasks.filter((task) => task.status !== "已完成").length,
+    completedCount: (state) => state.tasks.filter((task) => task.status === "已完成").length,
   },
   actions: {
-    createTask(input?: CreateTaskInput) {
-      this.tasks.unshift({
-        id: Date.now(),
-        title: input?.title || "新的催办任务",
-        file: input?.file || "待导入 Excel",
-        owner: input?.owner || "当前用户",
-        due: input?.due || "未设置",
-        instruction: input?.instruction || "导入表格后由小崔识别",
-        fields: [],
-        status: "进行中",
-        completion: 0,
-        pending: 0,
-        done: 0,
-        manual: 0,
-        rows: 0,
-        lastRefresh: "刚刚",
-      });
-    },
-    refreshTask(taskId: number) {
-      const task = this.tasks.find((item) => item.id === taskId);
-      if (task) task.lastRefresh = "刚刚";
-    },
-    handlePerson(personId: number) {
-      const person = this.people.find((item) => item.id === personId);
-      if (!person || person.status === "已完成") return;
-
-      if (person.status === "异常") {
-        person.status = "待处理";
-        if (person.employee === "待确认") person.employee = "已确认";
-        return;
+    /** 首屏加载全部会话。后端返回的每条都是完整的 SessionDetail。 */
+    async loadSessions(force = false) {
+      if (this.loading) return;
+      if (this.loaded && !force) return;
+      this.loading = true;
+      this.error = "";
+      try {
+        const details = await fetchSessionDetails();
+        this.applyDetails(details);
+        this.loaded = true;
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : "任务列表加载失败";
+      } finally {
+        this.loading = false;
       }
-
-      person.status = "已完成";
-      person.missing = [];
     },
-    saveSettings(settings: AppSettings) {
-      this.settings = { ...settings };
+
+    /** 详情页直接按 id 拉取，支持刷新页面后直接进入。 */
+    async loadSession(id: number) {
+      this.loading = true;
+      this.error = "";
+      try {
+        const detail = await fetchSessionDetail(id);
+        this.upsertSessionDetail(detail);
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : "任务加载失败";
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /** 重新上传最新版 Excel，后端做增量对账。 */
+    async refreshTask(id: number, file: File) {
+      this.loading = true;
+      this.error = "";
+      try {
+        const detail = await refreshSession(id, file);
+        this.upsertSessionDetail(detail);
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : "刷新失败";
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    applyDetails(details: BackendSessionDetail[]) {
+      for (const detail of details) {
+        this.upsertSessionDetail(detail);
+      }
+    },
+
+    upsertSessionDetail(detail: BackendSessionDetail) {
+      const task = convertTask(detail);
+      const index = this.tasks.findIndex((item) => item.id === task.id);
+      if (index >= 0) this.tasks[index] = task;
+      else this.tasks.unshift(task);
+
+      this.people = this.people.filter((person) => person.taskId !== task.id);
+      this.people.push(...convertPeople(detail));
+      this.reminderEvents = [
+        ...this.reminderEvents.filter((event) => event.taskId !== task.id),
+        ...detail.reminderEvents.map((event) => ({
+          id: event.id,
+          taskId: event.sessionId,
+          personId: event.followupTaskId,
+          recipient: event.recipientId,
+          channel: event.channel,
+          messageSnapshot: event.messageSnapshot,
+          status: event.status === "sent" ? ("sent" as const) : ("failed" as const),
+          sentAt: formatDateTime(event.sentAt),
+        })),
+      ];
+      return task.id;
     },
   },
 });
+
+function convertTask(detail: BackendSessionDetail): FollowupTask {
+  const manual = detail.progress.needsManualReview;
+  const pending = detail.progress.readyToSend;
+  const sent = detail.progress.sent;
+  const done = detail.progress.resolved + sent;
+  return {
+    id: detail.session.id,
+    title: detail.session.title,
+    file: detail.workbookProfile.fileName,
+    owner: detail.session.ownerId,
+    due: detail.session.dueAt || "未设置",
+    instruction: detail.session.userInstruction,
+    fields: detail.analysis.columnPlan.requiredColumns,
+    status: manual > 0 ? "有异常" : pending > 0 ? "进行中" : "已完成",
+    completion: detail.progress.completion,
+    pending,
+    done,
+    manual,
+    rows: detail.workbookProfile.sheets[0]?.rowCount ?? detail.progress.total,
+    sent,
+    lastRefresh: formatDateTime(detail.session.updatedAt),
+    createdAt: formatDateTime(detail.session.createdAt),
+    sheetName: detail.analysis.columnPlan.sheetName,
+    tableSummary: detail.analysis.tableSummary,
+    risks: detail.analysis.risks,
+  };
+}
+
+function convertPeople(detail: BackendSessionDetail): FollowupPerson[] {
+  return detail.items.map((item) => {
+    const task = detail.tasks.find((candidate) => candidate.followupItemId === item.id);
+    const sent = task?.status === "sent";
+    const closed = task?.status === "closed";
+    return {
+      id: item.id,
+      taskId: item.sessionId,
+      backendTaskId: task?.id,
+      name: item.displayName,
+      employee: item.employeeId || "待确认",
+      department: item.departmentId || "待确认",
+      email: item.email,
+      phone: item.phone,
+      missing: item.missingFields,
+      sourceRows: item.sourceRows.join(", "),
+      status:
+        item.status === "needs_manual_review"
+          ? "异常"
+          : item.status === "resolved"
+            ? "已完成"
+            : "待处理",
+      project: item.businessSummary,
+      matchStatus: item.status === "needs_manual_review" ? "needs_confirmation" : "matched",
+      messageDraft: task?.messageDraft ?? "",
+      messageFinal: task?.messageFinal ?? "",
+      sendStatus: closed ? "已关闭" : sent ? "已发送" : "待发送",
+      sentAt: task?.sentAt ? formatDateTime(task.sentAt) : "--",
+    };
+  });
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "--";
+  return value.replace("T", " ").slice(5, 16);
+}

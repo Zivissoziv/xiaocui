@@ -3,3 +3,17 @@ dist/
 prototype-qa/
 *.tsbuildinfo
 .DS_Store
+
+# 工作台数据
+.workbuddy/
+
+# 运行日志
+*.log
+
+# Excel 打开时产生的锁文件
+~$*
+
+# 后端运行产物：构建输出、H2 数据库、上传的表格
+backend/target/
+backend/data/
+backend/uploads/
