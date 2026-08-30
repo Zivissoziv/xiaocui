@@ -13,7 +13,7 @@
     </div>
 
     <el-steps :active="currentStep" finish-status="success" align-center class="wizard-steps">
-      <el-step v-for="(step, index) in steps" :key="step" :title="step" />
+      <el-step v-for="(step, index) in steps" :key="step" :title="step" :description="stepDescriptions[index]" />
     </el-steps>
 
     <div v-if="currentStep === 0" class="wizard-body import-step">
@@ -45,9 +45,10 @@
           <em>写得越具体，识别越准</em>
         </div>
         <el-input v-model="instruction" type="textarea" :rows="5" resize="none"
-                  placeholder="用一句话说明：要催谁、催哪几列、什么时候前反馈" />
+                  placeholder="用一句话说明：要催谁、催哪几列。例：请催G列的人完成H~K列" />
         <p class="instruction-note">
-          直接写出要催的列名（如「合同金额」）识别最准；不点名时会按各列填写情况自动推断，可能把备注类字段也算进去。
+          直接写出要催的列名（如「合同金额」）识别最准；也可以用 Excel 的列标（A、B、C…）指代第几列。
+          不点名时会按各列填写情况自动推断，可能把备注类字段也算进去。
         </p>
       </div>
     </div>
@@ -106,28 +107,32 @@
       </section>
     </div>
 
-    <div v-else class="wizard-body send-step">
-      <div class="send-card">
-        <img class="bot-image bot-plane" src="/assets/xiaocui-slices/paper-plane.png" alt="小崔发送通知">
-        <el-icon><CircleCheckFilled /></el-icon>
-        <h2>催办任务已生成</h2>
-        <p>已发送 <strong>{{ analysisDetail?.progress.sent ?? 0 }}</strong> 条，仍有 <strong>{{ analysisDetail?.progress.needsManualReview ?? 0 }}</strong> 条需要人工确认。</p>
-        <div class="send-actions">
-          <el-button type="primary" plain @click="openTask(currentTaskId)">查看任务进度</el-button>
-          <el-button @click="router.push({ name: 'console' })">返回首页</el-button>
-        </div>
-      </div>
-      <div class="reminder-box">
-        <strong><el-icon><InfoFilled /></el-icon> 发送模式</strong>
-        <p>阶段一先使用 ManualCopySender 记录待发送文案和发送留痕，后续可替换为邮件或内部消息中心。</p>
-      </div>
+    <div v-else class="wizard-body confirm-step">
+      <section class="form-section">
+        <h3>确认创建</h3>
+        <p>请核对以下信息，确认后进入任务详情页。</p>
+        <el-descriptions :column="1" border size="small" class="analysis-desc confirm-desc">
+          <el-descriptions-item label="任务名称">{{ taskTitle || selectedFile?.name || "未命名任务" }}</el-descriptions-item>
+          <el-descriptions-item label="截止时间">{{ dueAt || "未设置" }}</el-descriptions-item>
+          <el-descriptions-item label="待催办对象">{{ analysisDetail?.progress.total ?? 0 }} 人</el-descriptions-item>
+          <el-descriptions-item label="记录为待发送">{{ readyCount }} 条</el-descriptions-item>
+          <el-descriptions-item label="需人工确认">{{ analysisDetail?.progress.needsManualReview ?? 0 }} 条（异常对象，可在详情页补充邮箱后发送）</el-descriptions-item>
+        </el-descriptions>
+        <el-alert type="info" :closable="false" class="risk-alert">
+          <template #title>发送模式说明</template>
+          <p class="risk-line">当前为手动记录模式：确认后系统只记录待发送文案和发送留痕，不会真正发出邮件；可在详情页继续发送或跟踪进度。</p>
+        </el-alert>
+      </section>
     </div>
 
     <footer class="wizard-footer">
-      <el-button v-if="currentStep > 0 && currentStep < 3" @click="currentStep--">上一步</el-button>
+      <el-button v-if="currentStep > 0" @click="currentStep--">上一步</el-button>
       <el-button v-if="currentStep === 1" plain type="primary" @click="reanalyze">重新解析</el-button>
       <el-button v-if="currentStep < 3" type="primary" :loading="busy" @click="goNext">
         下一步：{{ steps[currentStep + 1] }} <el-icon><ArrowRight /></el-icon>
+      </el-button>
+      <el-button v-else type="primary" :loading="busy" @click="confirmCreate">
+        确认创建，进入详情 <el-icon><ArrowRight /></el-icon>
       </el-button>
     </footer>
   </section>
@@ -137,7 +142,7 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { ArrowRight, Back, CircleCheckFilled, InfoFilled } from "@element-plus/icons-vue";
+import { ArrowRight, Back, CircleCheckFilled } from "@element-plus/icons-vue";
 import {
   createAnalysisSession,
   sendFollowups,
@@ -153,11 +158,17 @@ const selectedFile = ref<File | null>(null);
 const fileInput = ref<HTMLInputElement>();
 const taskTitle = ref("");
 const dueAt = ref(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
-const instruction = ref("请催还没补充合同金额和预计完成时间的人");
+const instruction = ref("");
 const analysisDetail = ref<BackendSessionDetail | null>(null);
 const currentTaskId = ref(0);
 const busy = ref(false);
-const steps = ["导入文件", "AI解析", "配置信息", "发送通知"];
+const steps = ["导入文件", "AI解析", "配置信息", "确认创建"];
+const stepDescriptions = [
+  "上传 Excel 与催办要求",
+  "识别采集列与缺项",
+  "补全联系方式与催办文案",
+  "确认后进入详情页",
+];
 
 const fileSizeText = computed(() => {
   const file = selectedFile.value;
@@ -167,12 +178,15 @@ const fileSizeText = computed(() => {
 });
 
 const currentPeople = computed(() => store.peopleByTask(currentTaskId.value));
+const readyCount = computed(() =>
+  currentPeople.value.filter((person) => person.status !== "异常" && person.sendStatus !== "已发送").length,
+);
 const stepSubtitle = computed(() => {
   return [
     "上传需要催办的 Excel 文件，并输入自然语言催办要求",
     "后端已完成表格画像、列裁剪和缺项提取，请确认结果",
     "确认负责人和催办内容，异常对象补充联系方式后再发送",
-    "ManualCopySender 已记录发送结果，可进入进度页追踪",
+    "核对无误后确认创建，当前为手动记录模式，不会真正发送邮件",
   ][currentStep.value];
 });
 const analysisRows = computed(() => {
@@ -213,10 +227,6 @@ async function goNext() {
     await analyze();
     return;
   }
-  if (currentStep.value === 2) {
-    await sendReadyItems();
-    return;
-  }
   currentStep.value++;
 }
 
@@ -252,7 +262,8 @@ async function analyze() {
   }
 }
 
-async function sendReadyItems() {
+/** 最后一步「确认创建」：只记录待发送文案与留痕（手动模式，不真正发送），完成后跳转详情页。 */
+async function confirmCreate() {
   const readyPeople = currentPeople.value.filter((person) => person.status !== "异常" && person.sendStatus !== "已发送");
   busy.value = true;
   try {
@@ -268,12 +279,11 @@ async function sendReadyItems() {
       });
     }
     const detail = await sendFollowups(currentTaskId.value, readyPeople.map((person) => person.id));
-    analysisDetail.value = detail;
     store.upsertSessionDetail(detail);
-    currentStep.value = 3;
-    ElMessage.success(`已发送 ${detail.progress.sent} 条催办`);
+    ElMessage.success("任务已创建，可随时在详情页发送催办");
+    openTask(currentTaskId.value);
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : "发送失败");
+    ElMessage.error(error instanceof Error ? error.message : "创建失败");
   } finally {
     busy.value = false;
   }

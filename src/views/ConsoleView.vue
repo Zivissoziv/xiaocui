@@ -43,7 +43,7 @@
         <template #default="{ row }">{{ lastSentAt(row.id) }}</template>
       </el-table-column>
       <el-table-column prop="due" label="截止时间" width="120" />
-      <el-table-column label="操作" width="130" align="center">
+      <el-table-column label="操作" width="130" align="center" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" size="small" @click.stop="openTask(row.id)">详情</el-button>
           <el-button link type="danger" size="small" @click.stop="handleDeleteTask(row)">删除</el-button>

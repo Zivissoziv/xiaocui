@@ -179,14 +179,16 @@ export interface ReconcilePreview {
   unchanged: number;
 }
 
-/** 上传最新版前先预览差异，只读不落库，由用户确认后再调用 refreshSession 应用。 */
-export async function previewRefreshSession(sessionId: number, file: File) {
+/** 上传最新版前先预览差异，只读不落库，由用户确认后再调用 refreshSession 应用。
+ *  onProgress 回调的是「文件传输」的真实百分比；服务端解析阶段无法获知，由调用方另作展示。 */
+export async function previewRefreshSession(
+  sessionId: number,
+  file: File,
+  onProgress?: (percent: number) => void,
+) {
   const form = new FormData();
   form.append("file", file);
-  return request<ReconcilePreview>(`/api/analysis-sessions/${sessionId}/refresh-preview`, {
-    method: "POST",
-    body: form,
-  });
+  return requestUpload<ReconcilePreview>(`/api/analysis-sessions/${sessionId}/refresh-preview`, form, onProgress);
 }
 
 /** 确认应用预览：复用预览阶段的分析结果执行对账，不再重复调用模型，速度远快于 refreshSession。 */
@@ -247,7 +249,9 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 90_000):
     const response = await fetch(`${apiBase}${path}`, { ...init, signal: controller.signal });
     if (!response.ok) {
       const body = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(body.message || "接口请求失败");
+      // 带上状态码，避免 Spring 默认错误体（无 message 字段）被兜底成无信息量的提示。
+      const reason = body.message || body.error || response.statusText || "接口请求失败";
+      throw new Error(`[${response.status}] ${reason}`);
     }
     return response.json() as Promise<T>;
   } catch (error) {
@@ -258,4 +262,47 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 90_000):
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** 上传文件专用：fetch 无法监听上传进度，改用 XHR 以拿到真实的传输百分比。 */
+function requestUpload<T>(
+  path: string,
+  form: FormData,
+  onProgress?: (percent: number) => void,
+  timeoutMs = 120_000,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${apiBase}${path}`);
+    xhr.timeout = timeoutMs;
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as T);
+        } catch {
+          reject(new Error("响应解析失败"));
+        }
+        return;
+      }
+      let reason = xhr.statusText || "接口请求失败";
+      try {
+        const body = JSON.parse(xhr.responseText);
+        reason = body.message || body.error || reason;
+      } catch {
+        // 非 JSON 响应（如网关拦截页）保持状态码文案
+      }
+      reject(new Error(`[${xhr.status}] ${reason}`));
+    };
+
+    xhr.onerror = () => reject(new Error("网络异常，请检查后端服务是否已启动"));
+    xhr.ontimeout = () => reject(new Error("请求超时，请稍后重试"));
+    xhr.send(form);
+  });
 }

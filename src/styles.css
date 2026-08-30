@@ -726,8 +726,62 @@ button {
   box-shadow: var(--soft-shadow);
 }
 
+/* 步骤条美化：圆形序号、当前步高亮、完成步打勾底色 */
 .wizard-steps {
-  margin: 24px 0 22px;
+  margin: 24px 0 26px;
+  --el-color-primary: var(--blue);
+}
+
+.wizard-steps .el-step__icon {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--line);
+  background: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+
+.wizard-steps .el-step__head.is-process .el-step__icon {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(20, 104, 244, 0.28);
+}
+
+.wizard-steps .el-step__head.is-wait .el-step__icon {
+  color: #9aa9c0;
+  background: #f6f9fd;
+}
+
+.wizard-steps .el-step__head.is-success .el-step__icon {
+  border-color: transparent;
+  background: #e5f8f2;
+  color: var(--green);
+}
+
+.wizard-steps .el-step__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wizard-steps .el-step__title.is-process {
+  color: var(--ink);
+}
+
+.wizard-steps .el-step__title.is-wait {
+  color: #8b99af;
+  font-weight: 500;
+}
+
+.wizard-steps .el-step__description {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.wizard-steps .el-step__line {
+  background: var(--line);
 }
 
 .wizard-body {
@@ -980,13 +1034,6 @@ button {
   font-size: 18px;
 }
 
-.hero-title .edit-meta-btn {
-  margin-left: 2px;
-  padding: 2px 6px;
-  font-size: 12px;
-  vertical-align: 2px;
-}
-
 .form-hint {
   display: block;
   margin-top: 4px;
@@ -1088,6 +1135,131 @@ i.red {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* 上传/解析期间的醒目进度浮层：按钮上的 loading 太不起眼，这里给出文件名、阶段和耗时 */
+.progress-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 34, 66, 0.42);
+  backdrop-filter: blur(3px);
+}
+
+.progress-card {
+  width: min(420px, 100%);
+  padding: 30px 32px 26px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(20, 45, 90, 0.24);
+  text-align: center;
+}
+
+.progress-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.progress-ring {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 16px;
+  border: 4px solid var(--el-color-primary-light-8);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: progress-spin 0.9s linear infinite;
+}
+
+@keyframes progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.progress-file {
+  margin: 6px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-stage {
+  margin-top: 20px;
+}
+
+.progress-note {
+  margin: 10px 0 0;
+  color: #41506a;
+  font-size: 13px;
+}
+
+.progress-steps {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  text-align: left;
+}
+
+.progress-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #94a1b5;
+  font-size: 13px;
+  transition: color 0.2s ease;
+}
+
+.progress-steps li::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d8e2f2;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.progress-steps li.active {
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.progress-steps li.active::before {
+  background: var(--blue);
+  box-shadow: 0 0 0 4px rgba(20, 104, 244, 0.14);
+}
+
+.progress-steps li.done {
+  color: var(--green);
+}
+
+.progress-steps li.done::before {
+  background: var(--green);
+}
+
+.progress-timer {
+  margin: 14px 0 0;
+  color: #9aa7bb;
+  font-size: 12px;
+}
+
+.overlay-fade-enter-active,
+.overlay-fade-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.overlay-fade-enter-from,
+.overlay-fade-leave-to {
+  opacity: 0;
 }
 
 @media (max-width: 980px) {

@@ -7,6 +7,7 @@
       <h1>任务进度详情</h1>
       <div class="detail-actions">
         <input ref="refreshInput" class="hidden-input" type="file" accept=".xlsx,.xls" @change="handleRefreshFile">
+        <el-button v-if="task" :icon="EditPen" plain class="edit-meta-btn" @click="openEditMeta">修改</el-button>
         <el-button :icon="Refresh" plain :loading="previewBusy" @click="refreshInput?.click()">上传最新版</el-button>
         <el-button :icon="Download" plain @click="exportProgress">导出进度</el-button>
       </div>
@@ -18,12 +19,7 @@
           <div class="hero-title">
             <img class="bot-image bot-hero" src="/assets/xiaocui-slices/to-do.png" alt="小崔">
             <div>
-              <h2 class="hero-task-title">
-                {{ task.title }}
-                <el-button link type="primary" :icon="EditPen" class="edit-meta-btn" aria-label="修改任务信息"
-                           @click="openEditMeta">修改</el-button>
-              </h2>
-              <el-tag :type="taskTagType(task.status)" effect="light" round>{{ task.status }}</el-tag>
+              <h2 class="hero-task-title">{{ task.title }}</h2>
               <dl>
                 <div><dt>截止时间：</dt><dd>{{ task.due }}</dd></div>
                 <div><dt>创建时间：</dt><dd>{{ task.createdAt }}</dd></div>
@@ -95,7 +91,7 @@
                   <small class="person-sub">{{ row.sentAt }}</small>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="150" align="center">
+              <el-table-column label="操作" width="170" align="center" fixed="right">
                 <template #default="{ row }">
                   <el-button link type="primary" size="small"
                              :disabled="row.status === '异常' || row.sendStatus === '已关闭'"
@@ -196,6 +192,40 @@
     </template>
   </el-dialog>
 
+  <Teleport to="body">
+    <Transition name="overlay-fade">
+      <div v-if="progressTask" class="progress-overlay">
+        <div class="progress-card" role="status" aria-live="polite">
+          <div class="progress-ring"></div>
+          <h3>{{ progressTask.title }}</h3>
+          <p v-if="progressTask.fileName" class="progress-file" :title="progressTask.fileName">
+            {{ progressTask.fileName }}
+          </p>
+
+          <div class="progress-stage">
+            <el-progress v-if="progressTask.phase === 'upload'" :percentage="progressTask.percent"
+                         :stroke-width="8" :show-text="false" />
+            <el-progress v-else :percentage="100" :stroke-width="8" :show-text="false" indeterminate :duration="2" />
+            <p class="progress-note">
+              {{ progressTask.phase === "upload"
+                ? `正在传输文件 ${progressTask.percent}%`
+                : "文件已上传，服务端正在解析表格并比对差异…" }}
+            </p>
+          </div>
+
+          <ul class="progress-steps">
+            <li :class="progressTask.phase === 'upload' ? 'active' : 'done'">
+              {{ progressTask.phase === "upload" ? "上传文件" : "文件已上传" }}
+            </li>
+            <li :class="{ active: progressTask.phase === 'process' }">解析表格并比对差异</li>
+          </ul>
+
+          <p class="progress-timer">已用时 {{ progressTask.seconds }} 秒</p>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   <el-dialog v-model="editMetaVisible" title="编辑任务信息" width="420px" :close-on-click-modal="false">
     <el-form label-position="top" class="settings-form">
       <el-form-item label="任务名称">
@@ -215,7 +245,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Back, Download, EditPen, Message, Refresh } from "@element-plus/icons-vue";
@@ -256,6 +286,41 @@ const previewVisible = ref(false);
 const preview = ref<ReconcilePreview | null>(null);
 const pendingFile = ref<File | null>(null);
 
+/** 上传/解析期间的醒目进度浮层。upload 阶段是真实传输百分比，process 阶段服务端耗时未知，用不确定态。 */
+interface ProgressTask {
+  title: string;
+  phase: "upload" | "process";
+  percent: number;
+  fileName: string;
+  seconds: number;
+}
+
+const progressTask = ref<ProgressTask | null>(null);
+let secondTimer: ReturnType<typeof setInterval> | null = null;
+
+function startProgress(title: string, fileName = "") {
+  progressTask.value = {
+    title,
+    phase: fileName ? "upload" : "process",
+    percent: 0,
+    fileName,
+    seconds: 0,
+  };
+  secondTimer = setInterval(() => {
+    if (progressTask.value) progressTask.value.seconds += 1;
+  }, 1000);
+}
+
+function stopProgress() {
+  if (secondTimer) {
+    clearInterval(secondTimer);
+    secondTimer = null;
+  }
+  progressTask.value = null;
+}
+
+onUnmounted(stopProgress);
+
 const previewRows = computed<Array<ReconcilePreviewRow & { kind: string }>>(() => {
   const data = preview.value;
   if (!data) return [];
@@ -283,12 +348,6 @@ const progressColor = computed(() => {
   return "#ff933d";
 });
 
-function taskTagType(status: string): "success" | "danger" | "primary" {
-  if (status === "已完成") return "success";
-  if (status === "有异常") return "danger";
-  return "primary";
-}
-
 function personTagType(status: string): "success" | "danger" | "primary" {
   if (status === "已完成") return "success";
   if (status === "异常") return "danger";
@@ -308,14 +367,21 @@ async function handleRefreshFile(event: Event) {
   target.value = "";
   previewBusy.value = true;
   pendingFile.value = file;
+  startProgress("正在解析最新版表格", file.name);
   try {
-    preview.value = await previewRefreshSession(taskId.value, file);
+    preview.value = await previewRefreshSession(taskId.value, file, (percent) => {
+      if (!progressTask.value) return;
+      progressTask.value.percent = percent;
+      // 传输完成后进入服务端解析阶段，这一阶段耗时无法预估，改用不确定态。
+      if (percent >= 100) progressTask.value.phase = "process";
+    });
     previewVisible.value = true;
   } catch (error) {
     pendingFile.value = null;
     ElMessage.error(error instanceof Error ? error.message : "解析新表格失败");
   } finally {
     previewBusy.value = false;
+    stopProgress();
   }
 }
 
@@ -323,6 +389,7 @@ async function handleRefreshFile(event: Event) {
 async function applyRefresh() {
   if (!pendingFile.value) return;
   busy.value = true;
+  startProgress("正在应用更新");
   try {
     await store.confirmRefresh(taskId.value);
     previewVisible.value = false;
@@ -339,6 +406,7 @@ async function applyRefresh() {
     }
   } finally {
     busy.value = false;
+    stopProgress();
   }
 }
 
