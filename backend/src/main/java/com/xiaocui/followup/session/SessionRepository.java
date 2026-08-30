@@ -57,4 +57,7 @@ public interface SessionRepository {
 
     /** 删除整个催办会话及其全部关联数据（事项、任务、留痕、快照、分析记录）。 */
     void deleteSession(long sessionId);
+
+    /** 删除单个待补充事项及其催办任务、发送留痕、联系匹配记录。 */
+    void deleteItem(long sessionId, long itemId);
 }

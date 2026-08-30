@@ -177,6 +177,21 @@ public class MyBatisSessionRepository implements SessionRepository {
 
     @Override
     @Transactional
+    public void deleteItem(long sessionId, long itemId) {
+        SessionRows.TaskRow task = mapper.selectTaskByItem(sessionId, itemId);
+        if (task != null) {
+            mapper.deleteEventsByTask(task.id);
+        }
+        mapper.deleteTaskByItem(itemId);
+        SessionRows.ItemRow item = mapper.selectItem(itemId);
+        if (item != null && item.contactMatchId > 0) {
+            mapper.deleteContactMatch(item.contactMatchId);
+        }
+        mapper.deleteItemById(itemId);
+    }
+
+    @Override
+    @Transactional
     public void addEvent(ReminderEvent event) {
         mapper.insertEvent(toRow(event));
     }

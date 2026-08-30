@@ -51,11 +51,6 @@
       <artifactId>poi-ooxml</artifactId>
       <version>5.3.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
     <!-- 只引核心库不用 starter：避免自动配置强制要求 api-key，改为运行时按设置动态构建 -->
     <dependency>
       <groupId>org.springframework.ai</groupId>

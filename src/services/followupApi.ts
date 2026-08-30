@@ -132,6 +132,13 @@ export async function updateFollowupItem(itemId: number, payload: {
   });
 }
 
+/** 删除单个待补充人员（连同其催办任务与发送留痕），返回更新后的会话详情。 */
+export async function deleteFollowupItem(itemId: number) {
+  return request<BackendSessionDetail>(`/api/followup-items/${itemId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchSessionDetails() {
   return request<BackendSessionDetail[]>("/api/analysis-sessions/details");
 }

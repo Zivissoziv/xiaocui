@@ -1,7 +1,7 @@
 <template>
   <header class="home-header">
     <div>
-      <h1>你好，张管理员</h1>
+      <h1>你好，我是小崔，有什么可以帮到你</h1>
       <p>{{ todayText }}</p>
     </div>
     <el-button type="primary" :icon="Plus" @click="router.push({ name: 'new-task' })">新建催办任务</el-button>

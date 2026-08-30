@@ -260,6 +260,14 @@ public class FollowupService {
         return new ProgressSummary(total, ready, sent, resolved, manual, completion);
     }
 
+    /** 删除单个待补充事项（连同其催办任务、发送留痕、联系匹配记录），返回更新后的会话详情。 */
+    @Transactional
+    public SessionDetail deleteItem(long itemId) {
+        FollowupItem item = findItem(itemId);
+        repository.deleteItem(item.sessionId(), itemId);
+        return detail(item.sessionId());
+    }
+
     private FollowupItem findItem(long itemId) {
         return repository.findItem(itemId).orElseThrow(() -> new IllegalArgumentException("待补充事项不存在"));
     }

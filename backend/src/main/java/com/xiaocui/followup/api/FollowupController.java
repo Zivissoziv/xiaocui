@@ -89,6 +89,11 @@ public class FollowupController {
         return followupService.updateItem(itemId, request);
     }
 
+    @DeleteMapping("/followup-items/{itemId}")
+    public SessionDetail deleteItem(@PathVariable long itemId) {
+        return followupService.deleteItem(itemId);
+    }
+
     @PostMapping("/analysis-sessions/{sessionId}/followup-tasks/send")
     public SessionDetail send(@PathVariable long sessionId, @RequestBody(required = false) SendRequest request) {
         return followupService.send(sessionId, request == null ? new SendRequest(List.of()) : request);

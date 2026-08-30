@@ -41,7 +41,7 @@
           <h3>AI 分析结果</h3>
           <p>{{ task.tableSummary }}</p>
           <div class="field-tags">
-            <el-tag v-for="field in task.fields" :key="field" type="success" size="small" effect="light" round>
+            <el-tag v-for="field in task.fields" :key="field" type="success" effect="light" round>
               {{ field }}
             </el-tag>
           </div>
@@ -66,31 +66,38 @@
             <el-table :data="people" class="person-table" @selection-change="onSelectionChange">
               <el-table-column type="selection" width="44"
                                :selectable="(row: FollowupPerson) => row.status !== '异常' && row.sendStatus !== '已关闭'" />
-              <el-table-column label="负责人" min-width="130">
+              <el-table-column label="负责人" min-width="110">
                 <template #default="{ row }">
                   <div class="person-name">{{ row.name }}</div>
+                </template>
+              </el-table-column>
+              <el-table-column label="邮箱" min-width="160" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <span :class="{ 'muted-cell': !row.email }">{{ row.email || "—" }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="缺失内容" min-width="150">
                 <template #default="{ row }">{{ row.missing.join("、") || "无" }}</template>
               </el-table-column>
-              <el-table-column prop="sourceRows" label="来源行" width="100" />
-              <el-table-column label="状态" width="100" align="center">
+              <el-table-column prop="sourceRows" label="来源行" width="90" />
+              <el-table-column label="状态" width="90" align="center">
                 <template #default="{ row }">
                   <el-tag :type="personTagType(row.status)" size="small" effect="light" round>{{ row.status }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="发送状态" width="120">
+              <el-table-column label="发送状态" width="110">
                 <template #default="{ row }">
                   <div>{{ row.sendStatus }}</div>
                   <small class="person-sub">{{ row.sentAt }}</small>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="90" align="center">
+              <el-table-column label="操作" width="150" align="center">
                 <template #default="{ row }">
                   <el-button link type="primary" size="small"
                              :disabled="row.status === '异常' || row.sendStatus === '已关闭'"
                              @click="sendOne(row.id)">发送</el-button>
+                  <el-button link type="primary" size="small" @click="openEditPerson(row)">修改</el-button>
+                  <el-button link type="danger" size="small" @click="handleDeletePerson(row)">删除</el-button>
                 </template>
               </el-table-column>
               <template #empty>
@@ -164,16 +171,33 @@
       <el-button v-if="hasChanges" type="primary" :loading="busy" @click="applyRefresh">确认更新</el-button>
     </template>
   </el-dialog>
+
+  <el-dialog v-model="editVisible" title="修改人员信息" width="420px" :close-on-click-modal="false">
+    <el-form label-position="top" class="settings-form">
+      <el-form-item label="姓名">
+        <el-input v-model="editForm.name" placeholder="负责人姓名" />
+      </el-form-item>
+      <el-form-item label="邮箱">
+        <el-input v-model="editForm.email" placeholder="用于发送催办提醒" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="editVisible = false">取消</el-button>
+      <el-button type="primary" :loading="savingEdit" @click="saveEditPerson">保存</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { Back, Download, Message, Refresh } from "@element-plus/icons-vue";
 import {
+  deleteFollowupItem,
   previewRefreshSession,
   sendFollowups,
+  updateFollowupItem,
   type ReconcilePreview,
   type ReconcilePreviewRow,
 } from "../services/followupApi";
@@ -286,6 +310,56 @@ const selectedPeople = ref<FollowupPerson[]>([]);
 
 function onSelectionChange(rows: FollowupPerson[]) {
   selectedPeople.value = rows;
+}
+
+const editVisible = ref(false);
+const savingEdit = ref(false);
+const editForm = ref({ id: 0, name: "", email: "" });
+
+function openEditPerson(row: FollowupPerson) {
+  editForm.value = { id: row.id, name: row.name, email: row.email };
+  editVisible.value = true;
+}
+
+async function saveEditPerson() {
+  if (!editForm.value.name.trim()) {
+    ElMessage.warning("姓名不能为空");
+    return;
+  }
+  savingEdit.value = true;
+  try {
+    const detail = await updateFollowupItem(editForm.value.id, {
+      displayName: editForm.value.name.trim(),
+      email: editForm.value.email.trim(),
+    });
+    store.upsertSessionDetail(detail);
+    editVisible.value = false;
+    ElMessage.success("已保存");
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "保存失败");
+  } finally {
+    savingEdit.value = false;
+  }
+}
+
+async function handleDeletePerson(row: FollowupPerson) {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除「${row.name}」吗？该人员的催办任务与发送留痕会一并删除，且无法恢复。`,
+      "删除人员",
+      { confirmButtonText: "删除", cancelButtonText: "取消", type: "warning" },
+    );
+  } catch {
+    return; // 用户取消
+  }
+  try {
+    const detail = await deleteFollowupItem(row.id);
+    store.upsertSessionDetail(detail);
+    selectedPeople.value = selectedPeople.value.filter((person) => person.id !== row.id);
+    ElMessage.success("已删除");
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "删除失败");
+  }
 }
 
 /** 批量催办勾选的人；已发送的人也可以再次提醒。 */
