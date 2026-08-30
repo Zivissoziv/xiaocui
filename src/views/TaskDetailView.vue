@@ -18,7 +18,11 @@
           <div class="hero-title">
             <img class="bot-image bot-hero" src="/assets/xiaocui-slices/to-do.png" alt="小崔">
             <div>
-              <h2>{{ task.title }}</h2>
+              <h2 class="hero-task-title">
+                {{ task.title }}
+                <el-button link type="primary" :icon="EditPen" class="edit-meta-btn" aria-label="修改任务信息"
+                           @click="openEditMeta">修改</el-button>
+              </h2>
               <el-tag :type="taskTagType(task.status)" effect="light" round>{{ task.status }}</el-tag>
               <dl>
                 <div><dt>截止时间：</dt><dd>{{ task.due }}</dd></div>
@@ -191,18 +195,36 @@
       <el-button type="primary" :loading="savingEdit" @click="saveEditPerson">保存</el-button>
     </template>
   </el-dialog>
+
+  <el-dialog v-model="editMetaVisible" title="编辑任务信息" width="420px" :close-on-click-modal="false">
+    <el-form label-position="top" class="settings-form">
+      <el-form-item label="任务名称">
+        <el-input v-model="editMetaForm.title" placeholder="任务名称" maxlength="60" show-word-limit />
+      </el-form-item>
+      <el-form-item label="截止时间">
+        <el-date-picker v-model="editMetaForm.dueAt" type="date" placeholder="选择截止日期"
+                        value-format="YYYY-MM-DD" style="width: 100%" clearable />
+        <small class="form-hint">不设置表示无截止时间</small>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="editMetaVisible = false">取消</el-button>
+      <el-button type="primary" :loading="savingMeta" @click="saveEditMeta">保存</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Back, Download, Message, Refresh } from "@element-plus/icons-vue";
+import { Back, Download, EditPen, Message, Refresh } from "@element-plus/icons-vue";
 import {
   deleteFollowupItem,
   previewRefreshSession,
   sendFollowups,
   updateFollowupItem,
+  updateSessionMeta,
   type ReconcilePreview,
   type ReconcilePreviewRow,
 } from "../services/followupApi";
@@ -353,6 +375,43 @@ async function saveEditPerson() {
     ElMessage.error(error instanceof Error ? error.message : "保存失败");
   } finally {
     savingEdit.value = false;
+  }
+}
+
+/** 编辑任务信息：任务名称 + 截止时间。 */
+const editMetaVisible = ref(false);
+const savingMeta = ref(false);
+const editMetaForm = ref({ title: "", dueAt: "" });
+
+function openEditMeta() {
+  const current = task.value;
+  if (!current) return;
+  editMetaForm.value = {
+    title: current.title,
+    dueAt: current.due === "未设置" ? "" : current.due,
+  };
+  editMetaVisible.value = true;
+}
+
+async function saveEditMeta() {
+  const title = editMetaForm.value.title.trim();
+  if (!title) {
+    ElMessage.warning("任务名称不能为空");
+    return;
+  }
+  savingMeta.value = true;
+  try {
+    const detail = await updateSessionMeta(taskId.value, {
+      title,
+      dueAt: editMetaForm.value.dueAt || "",
+    });
+    store.upsertSessionDetail(detail);
+    editMetaVisible.value = false;
+    ElMessage.success("已保存");
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "保存失败");
+  } finally {
+    savingMeta.value = false;
   }
 }
 

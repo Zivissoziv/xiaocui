@@ -113,6 +113,21 @@ public class SessionService {
         return repository.findSessions();
     }
 
+    /**
+     * 修改任务元信息（任务名称 / 截止时间）。
+     * title 为空保持原值；dueAt 为 null 保持原值，空字符串表示清空截止时间。
+     */
+    public SessionDetail updateMeta(long sessionId, String title, String dueAt) {
+        AnalysisSession session = repository.findSession(sessionId).orElseThrow(() -> new IllegalArgumentException("会话不存在"));
+        String nextTitle = isBlank(title) ? session.title() : title.trim();
+        String nextDueAt = dueAt == null ? session.dueAt() : (dueAt.isBlank() ? null : dueAt.trim());
+        if (nextTitle.equals(session.title()) && java.util.Objects.equals(nextDueAt, session.dueAt())) {
+            return followupService.detail(sessionId);
+        }
+        repository.saveSession(session.withTitleAndDueAt(nextTitle, nextDueAt));
+        return followupService.detail(sessionId);
+    }
+
     public SessionDetail detail(long sessionId) {
         return followupService.detail(sessionId);
     }

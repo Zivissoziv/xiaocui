@@ -147,6 +147,15 @@ export async function fetchSessionDetail(sessionId: number) {
   return request<BackendSessionDetail>(`/api/analysis-sessions/${sessionId}`);
 }
 
+/** 修改任务名称 / 截止时间。title/dueAt 只传要改的字段；dueAt 传空字符串表示清空截止时间。 */
+export async function updateSessionMeta(sessionId: number, payload: { title?: string; dueAt?: string }) {
+  return request<BackendSessionDetail>(`/api/analysis-sessions/${sessionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function refreshSession(sessionId: number, file: File) {
   const form = new FormData();
   form.append("file", file);

@@ -9,6 +9,7 @@ import com.xiaocui.followup.sender.ReminderEvent;
 import com.xiaocui.followup.session.AnalysisSession;
 import com.xiaocui.followup.session.SessionRepository;
 import com.xiaocui.followup.session.SessionService;
+import com.xiaocui.followup.session.UpdateSessionMetaRequest;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
@@ -66,6 +67,11 @@ public class FollowupController {
     @GetMapping("/analysis-sessions/{sessionId}")
     public SessionDetail getSession(@PathVariable long sessionId) {
         return sessionService.detail(sessionId);
+    }
+
+    @PatchMapping("/analysis-sessions/{sessionId}")
+    public SessionDetail updateSessionMeta(@PathVariable long sessionId, @RequestBody UpdateSessionMetaRequest request) {
+        return sessionService.updateMeta(sessionId, request.title(), request.dueAt());
     }
 
     @DeleteMapping("/analysis-sessions/{sessionId}")

@@ -21,4 +21,8 @@ public record AnalysisSession(
     public AnalysisSession withSourceRef(String nextSourceRef) {
         return new AnalysisSession(id, title, ownerId, sourceType, nextSourceRef, userInstruction, dueAt, status, createdAt, LocalDateTime.now());
     }
+
+    public AnalysisSession withTitleAndDueAt(String nextTitle, String nextDueAt) {
+        return new AnalysisSession(id, nextTitle, ownerId, sourceType, sourceRef, userInstruction, nextDueAt, status, createdAt, LocalDateTime.now());
+    }
 }
