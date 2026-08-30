@@ -60,6 +60,9 @@ public class FollowupService {
             stillMissing.add(draft.ownerRaw());
             FollowupItem current = existingByOwner.get(draft.ownerRaw());
 
+            // 根据最新联系方式重新判定待办状态：避免编辑邮箱清空后状态长期停留在 ready_to_send。
+            String latestStatus = (!isBlank(draft.emailHint()) || !isBlank(draft.phoneHint())) ? "ready_to_send" : "needs_manual_review";
+
             if (current == null) {
                 ContactMatch match = contactService.match(draft);
                 FollowupItem created = buildItem(sessionId, draft, match, dueAt);
@@ -68,7 +71,22 @@ public class FollowupService {
                 continue;
             }
 
-            if ("resolved".equals(current.status())) continue;
+            if ("resolved".equals(current.status())) {
+                // 已解决的人在新表里又出现缺项：重新激活（按最新联系方式判定状态），并把已关闭的催办任务恢复为草稿。
+                repository.replaceItem(current.withReconcile(
+                        draft.sourceRows(),
+                        draft.missingFields(),
+                        draft.filledFields(),
+                        draft.businessSummary(),
+                        draft.issueSummary()
+                ).withStatus(latestStatus));
+                repository.findTaskByItem(sessionId, current.id()).ifPresent(task -> {
+                    if (!"draft".equals(task.status()) && !"sent".equals(task.status())) {
+                        repository.replaceTask(task.withStatus("draft"));
+                    }
+                });
+                continue;
+            }
 
             repository.replaceItem(current.withReconcile(
                     draft.sourceRows(),
@@ -76,7 +94,7 @@ public class FollowupService {
                     draft.filledFields(),
                     draft.businessSummary(),
                     draft.issueSummary()
-            ));
+            ).withStatus(latestStatus));
 
             repository.findTaskByItem(sessionId, current.id()).ifPresent(task -> {
                 boolean settled = "sent".equals(task.status()) || "closed".equals(task.status()) || "blocked".equals(task.status());
@@ -255,8 +273,10 @@ public class FollowupService {
         int ready = (int) items.stream().filter(item -> item.status().equals("ready_to_send")).count();
         int manual = (int) items.stream().filter(item -> item.status().equals("needs_manual_review")).count();
         int resolved = (int) items.stream().filter(item -> item.status().equals("resolved")).count();
-        int sent = (int) tasks.stream().filter(task -> task.status().equals("sent")).count();
-        int completion = total == 0 ? 100 : Math.round((resolved + sent) * 100f / total);
+        // sent 按事项统计，与明细口径一致（task 状态可能因对账滞后于 item）
+        int sent = (int) items.stream().filter(item -> item.status().equals("sent")).count();
+        // 完成度只算真正补充完整的（resolved）；已发送但仍缺项的不算完成
+        int completion = total == 0 ? 100 : Math.round(resolved * 100f / total);
         return new ProgressSummary(total, ready, sent, resolved, manual, completion);
     }
 

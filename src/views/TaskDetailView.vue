@@ -19,7 +19,7 @@
             <img class="bot-image bot-hero" src="/assets/xiaocui-slices/to-do.png" alt="小崔">
             <div>
               <h2>{{ task.title }}</h2>
-              <el-tag :type="taskTagType(task.status)" size="small" effect="light" round>{{ task.status }}</el-tag>
+              <el-tag :type="taskTagType(task.status)" effect="light" round>{{ task.status }}</el-tag>
               <dl>
                 <div><dt>截止时间：</dt><dd>{{ task.due }}</dd></div>
                 <div><dt>创建时间：</dt><dd>{{ task.createdAt }}</dd></div>
@@ -82,7 +82,7 @@
               <el-table-column prop="sourceRows" label="来源行" width="90" />
               <el-table-column label="状态" width="90" align="center">
                 <template #default="{ row }">
-                  <el-tag :type="personTagType(row.status)" size="small" effect="light" round>{{ row.status }}</el-tag>
+                  <el-tag :type="personTagType(row.status)" effect="light" round>{{ row.status }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="发送状态" width="110">
@@ -111,7 +111,12 @@
           <section class="panel">
             <h3>催办留痕</h3>
             <el-table :data="reminderEvents">
-              <el-table-column prop="recipient" label="收件人" min-width="150" />
+              <el-table-column label="收件人" min-width="150">
+                <template #default="{ row }">
+                  <div>{{ row.personName || row.recipient }}</div>
+                  <small v-if="row.personName" class="person-sub">{{ row.personEmail || row.recipient }}</small>
+                </template>
+              </el-table-column>
               <el-table-column prop="channel" label="渠道" width="100" />
               <el-table-column label="发送内容" min-width="300" show-overflow-tooltip>
                 <template #default="{ row }">{{ row.messageSnapshot }}</template>
@@ -214,7 +219,16 @@ const task = computed(() => store.taskById(taskId.value));
 const people = computed(() => store.peopleByTask(taskId.value));
 const completion = computed(() => task.value?.completion ?? 0);
 const activeTab = ref("progress");
-const reminderEvents = computed(() => store.reminderEvents.filter((event) => event.taskId === taskId.value));
+const reminderEvents = computed(() =>
+  store.reminderEvents
+    .filter((event) => event.taskId === taskId.value)
+    .map((event) => {
+      // 留痕按 followupTaskId 关联到人员（people.backendTaskId 存的是 task id），
+      // 收件人展示负责人姓名，避免显示工号/邮箱与负责人对不上。
+      const person = people.value.find((item) => item.backendTaskId === event.personId);
+      return { ...event, personName: person?.name ?? "", personEmail: person?.email ?? "" };
+    }),
+);
 
 const previewVisible = ref(false);
 const preview = ref<ReconcilePreview | null>(null);
@@ -247,15 +261,15 @@ const progressColor = computed(() => {
   return "#ff933d";
 });
 
-function taskTagType(status: string): "success" | "warning" | "primary" {
+function taskTagType(status: string): "success" | "danger" | "primary" {
   if (status === "已完成") return "success";
-  if (status === "有异常") return "warning";
+  if (status === "有异常") return "danger";
   return "primary";
 }
 
-function personTagType(status: string): "success" | "warning" | "primary" {
+function personTagType(status: string): "success" | "danger" | "primary" {
   if (status === "已完成") return "success";
-  if (status === "异常") return "warning";
+  if (status === "异常") return "danger";
   return "primary";
 }
 

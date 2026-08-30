@@ -90,7 +90,7 @@
           </el-table-column>
           <el-table-column label="缺失内容" min-width="170">
             <template #default="{ row }">
-              <el-tag :type="row.status === '异常' ? 'warning' : 'primary'" size="small" effect="light" round>
+              <el-tag :type="row.status === '异常' ? 'danger' : 'primary'" effect="light" round>
                 {{ row.status }}
               </el-tag>
               <p class="missing-text">{{ row.missing.join("、") }}</p>

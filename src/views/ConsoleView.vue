@@ -25,24 +25,27 @@
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
     </div>
-    <el-table :data="filteredTasks" class="task-table" row-class-name="clickable-row"
-              @row-click="(row: FollowupTask) => openTask(row.id)">
-      <el-table-column prop="title" label="任务名称" min-width="190" show-overflow-tooltip />
-      <el-table-column prop="file" label="文件名" min-width="170" show-overflow-tooltip />
-      <el-table-column prop="pending" label="待发送" width="96" align="center" />
-      <el-table-column prop="manual" label="需确认" width="96" align="center">
+    <el-table :data="filteredTasks" class="task-table">
+      <el-table-column prop="title" label="任务名称" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="file" label="文件名" min-width="150" show-overflow-tooltip />
+      <el-table-column label="总催办人数" width="100" align="center">
+        <template #default="{ row }">{{ store.peopleByTask(row.id).length }}</template>
+      </el-table-column>
+      <el-table-column label="已完成人数" width="100" align="center">
+        <template #default="{ row }">{{ row.done }}</template>
+      </el-table-column>
+      <el-table-column label="异常人数" width="100" align="center">
         <template #default="{ row }">
           <span :class="{ 'danger-text': row.manual > 0 }">{{ row.manual }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="lastRefresh" label="更新时间" width="150" />
-      <el-table-column label="状态" width="110" align="center">
-        <template #default="{ row }">
-          <el-tag :type="taskTagType(row.status)" size="small" effect="light" round>{{ row.status }}</el-tag>
-        </template>
+      <el-table-column label="最近催办时间" width="140">
+        <template #default="{ row }">{{ lastSentAt(row.id) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="80" align="center">
+      <el-table-column prop="due" label="截止时间" width="120" />
+      <el-table-column label="操作" width="130" align="center">
         <template #default="{ row }">
+          <el-button link type="primary" size="small" @click.stop="openTask(row.id)">详情</el-button>
           <el-button link type="danger" size="small" @click.stop="handleDeleteTask(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -67,8 +70,8 @@ import {
   CircleCheckFilled,
   DocumentChecked,
   Plus,
+  Promotion,
   Search,
-  Stopwatch,
 } from "@element-plus/icons-vue";
 import { deleteSession } from "../services/followupApi";
 import { useFollowupStore, type FollowupTask } from "../stores/followup";
@@ -77,10 +80,14 @@ const router = useRouter();
 const store = useFollowupStore();
 const taskKeyword = ref("");
 
-function taskTagType(status: string): "success" | "warning" | "primary" {
-  if (status === "已完成") return "success";
-  if (status === "有异常") return "warning";
-  return "primary";
+/** 最近催办时间 = 该任务最新一条发送留痕的时间，无留痕显示 —。 */
+function lastSentAt(taskId: number): string {
+  const times = store.reminderEvents
+    .filter((event) => event.taskId === taskId)
+    .map((event) => event.sentAt)
+    .filter((value) => value && value !== "--")
+    .sort();
+  return times.length > 0 ? times[times.length - 1] : "—";
 }
 
 const weekNames = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
@@ -101,10 +108,11 @@ const filteredTasks = computed(() => {
       .some((value) => value.toLowerCase().includes(keyword));
   });
 });
+
 const metrics = computed(() => [
   { label: "进行中", value: store.activeCount, icon: DocumentChecked, tone: "blue" },
   { label: "已完成", value: store.completedCount, icon: CircleCheckFilled, tone: "green" },
-  { label: "待发送", value: store.totalPending, icon: Stopwatch, tone: "orange" },
+  { label: "总催办次数", value: store.reminderEvents.length, icon: Promotion, tone: "orange" },
   { label: "需人工确认", value: store.totalManual, icon: Bell, tone: "red" },
 ]);
 

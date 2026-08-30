@@ -23,6 +23,10 @@ public record FollowupTask(
         return new FollowupTask(id, sessionId, followupItemId, recipientId, channel, messageDraft, messageFinal, "sent", scheduledAt, LocalDateTime.now(), closedAt);
     }
 
+    public FollowupTask withStatus(String nextStatus) {
+        return new FollowupTask(id, sessionId, followupItemId, recipientId, channel, messageDraft, messageFinal, nextStatus, scheduledAt, sentAt, closedAt);
+    }
+
     /** 对应事项已补充完整，关闭任务但保留发送历史。 */
     public FollowupTask closeNow() {
         return new FollowupTask(id, sessionId, followupItemId, recipientId, channel, messageDraft, messageFinal, "closed", scheduledAt, sentAt, LocalDateTime.now());

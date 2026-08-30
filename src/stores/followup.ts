@@ -51,6 +51,7 @@ export interface FollowupPerson {
   messageFinal: string;
   sendStatus: SendStatus;
   sentAt: string;
+  dueAt: string;
 }
 
 export interface ReminderEvent {
@@ -185,9 +186,10 @@ export const useFollowupStore = defineStore("followup", {
 
 function convertTask(detail: BackendSessionDetail): FollowupTask {
   const manual = detail.progress.needsManualReview;
-  const pending = detail.progress.readyToSend;
   const sent = detail.progress.sent;
-  const done = detail.progress.resolved + sent;
+  const done = detail.progress.resolved;
+  // 未完成 = 待发送 + 已发送但仍缺项（sent 的人还没真正完成）
+  const pending = detail.progress.readyToSend + sent;
   return {
     id: detail.session.id,
     title: detail.session.title,
@@ -239,6 +241,7 @@ function convertPeople(detail: BackendSessionDetail): FollowupPerson[] {
       messageFinal: task?.messageFinal ?? "",
       sendStatus: closed ? "已关闭" : sent ? "已发送" : "待发送",
       sentAt: task?.sentAt ? formatDateTime(task.sentAt) : "--",
+      dueAt: item.dueAt || "未设置",
     };
   });
 }

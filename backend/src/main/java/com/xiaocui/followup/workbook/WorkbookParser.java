@@ -3,6 +3,7 @@ package com.xiaocui.followup.workbook;
 import com.xiaocui.followup.config.AppProperties;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -61,6 +62,9 @@ public class WorkbookParser {
         int headerRowIndex = detectHeaderRow(sheet, formatter);
         Row headerRow = sheet.getRow(headerRowIndex);
         List<String> headers = readHeaders(headerRow, formatter);
+        // 合并单元格：区域内除左上角外取值为空，这里把左上角的值下推到整个区域，
+        // 避免"负责人列合并"等场景被误判为未识别或缺项。
+        Map<String, String> mergedValues = buildMergedValues(sheet, formatter, headerRowIndex);
         List<SheetData.RowData> rows = new ArrayList<>();
         int lastRow = Math.min(sheet.getLastRowNum(), headerRowIndex + Math.max(1, properties.maxRows()));
 
@@ -71,6 +75,7 @@ public class WorkbookParser {
             boolean hasValue = false;
             for (int columnIndex = 0; columnIndex < headers.size(); columnIndex++) {
                 String value = formatter.formatCellValue(row.getCell(columnIndex)).trim();
+                if (value.isEmpty()) value = mergedValues.getOrDefault(rowIndex + ":" + columnIndex, "");
                 if (!value.isEmpty()) hasValue = true;
                 values.put(headers.get(columnIndex), value);
             }
@@ -78,6 +83,22 @@ public class WorkbookParser {
         }
 
         return new SheetData(sheet.getSheetName(), headerRowIndex + 1, headers, rows);
+    }
+
+    /** 收集数据区所有合并区域，把左上角单元格的值映射到区域内每个坐标（行:列）。表头区域的合并不下推。 */
+    private Map<String, String> buildMergedValues(Sheet sheet, DataFormatter formatter, int headerRowIndex) {
+        Map<String, String> merged = new java.util.HashMap<>();
+        for (CellRangeAddress region : sheet.getMergedRegions()) {
+            if (region.getFirstRow() <= headerRowIndex) continue;
+            String value = formatter.formatCellValue(sheet.getRow(region.getFirstRow()).getCell(region.getFirstColumn())).trim();
+            if (value.isEmpty()) continue;
+            for (int row = region.getFirstRow(); row <= region.getLastRow(); row++) {
+                for (int column = region.getFirstColumn(); column <= region.getLastColumn(); column++) {
+                    merged.putIfAbsent(row + ":" + column, value);
+                }
+            }
+        }
+        return merged;
     }
 
     private int detectHeaderRow(Sheet sheet, DataFormatter formatter) {

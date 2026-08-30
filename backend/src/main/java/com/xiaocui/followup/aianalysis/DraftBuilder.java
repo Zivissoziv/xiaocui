@@ -16,22 +16,36 @@ import java.util.Map;
 @Component
 public class DraftBuilder {
 
+    /** 一行里的负责人及联系方式按同样分隔符拆分后，按位置一一对应。 */
+    private record OwnerRow(SheetData.RowData row, int index,
+                            List<String> emails, List<String> phones,
+                            List<String> employees, List<String> departments) {
+    }
+
     public List<FollowupDraft> build(SheetData sheet, ColumnPlan plan, String instruction, String dueAt, List<String> risks) {
-        Map<String, List<SheetData.RowData>> grouped = new LinkedHashMap<>();
+        Map<String, List<OwnerRow>> grouped = new LinkedHashMap<>();
         for (SheetData.RowData row : sheet.rows()) {
-            String owner = get(row, plan.ownerColumn());
-            String key = owner.isBlank() ? "未识别负责人-" + row.rowNumber() : owner;
-            grouped.computeIfAbsent(key, ignored -> new ArrayList<>()).add(row);
+            List<String> owners = splitValues(get(row, plan.ownerColumn()));
+            List<String> emails = splitValues(get(row, plan.emailColumn()));
+            List<String> phones = splitValues(get(row, plan.phoneColumn()));
+            List<String> employees = splitValues(get(row, plan.employeeColumn()));
+            List<String> departments = splitValues(get(row, plan.departmentColumn()));
+            if (owners.isEmpty()) owners = List.of("未识别负责人-" + row.rowNumber());
+            for (int index = 0; index < owners.size(); index++) {
+                grouped.computeIfAbsent(owners.get(index), ignored -> new ArrayList<>())
+                        .add(new OwnerRow(row, index, emails, phones, employees, departments));
+            }
         }
 
         List<FollowupDraft> drafts = new ArrayList<>();
-        grouped.forEach((owner, rows) -> {
+        grouped.forEach((owner, ownerRows) -> {
             LinkedHashSet<String> missing = new LinkedHashSet<>();
             Map<String, String> filled = new LinkedHashMap<>();
             List<Integer> sourceRows = new ArrayList<>();
             LinkedHashSet<String> businessValues = new LinkedHashSet<>();
 
-            for (SheetData.RowData row : rows) {
+            for (OwnerRow entry : ownerRows) {
+                SheetData.RowData row = entry.row();
                 sourceRows.add(row.rowNumber());
                 for (String required : plan.requiredColumns()) {
                     String value = get(row, required);
@@ -45,22 +59,26 @@ public class DraftBuilder {
             }
             if (missing.isEmpty()) return;
 
-            SheetData.RowData sample = rows.get(0);
+            OwnerRow sample = ownerRows.get(0);
             String displayName = owner.startsWith("未识别负责人-") ? "未识别负责人" : owner;
+            String email = pickAt(sample.emails(), sample.index());
+            String phone = pickAt(sample.phones(), sample.index());
+            String employee = pickAt(sample.employees(), sample.index());
+            String department = pickAt(sample.departments(), sample.index());
             String businessSummary = businessValues.isEmpty() ? "来源行 " + joinNumbers(sourceRows) : String.join("，", businessValues);
             String issueSummary = "第 %s 行缺少 %s".formatted(joinNumbers(sourceRows), String.join("、", missing));
 
             if (displayName.equals("未识别负责人")
-                    || allBlank(get(sample, plan.emailColumn()), get(sample, plan.phoneColumn()))) {
+                    || allBlank(email, phone)) {
                 risks.add("第 %s 行负责人或邮箱需要人工确认。".formatted(joinNumbers(sourceRows)));
             }
 
             drafts.add(new FollowupDraft(
                     displayName,
-                    get(sample, plan.employeeColumn()),
-                    get(sample, plan.departmentColumn()),
-                    get(sample, plan.emailColumn()),
-                    get(sample, plan.phoneColumn()),
+                    employee,
+                    department,
+                    email,
+                    phone,
                     sourceRows,
                     new ArrayList<>(missing),
                     filled,
@@ -82,6 +100,20 @@ public class DraftBuilder {
     private String get(SheetData.RowData row, String column) {
         if (column == null || column.isBlank()) return "";
         return row.values().getOrDefault(column, "");
+    }
+
+    /** 按逗号/顿号/分号/斜杠/空白拆分一个单元格里的多个值（如多个负责人、多个邮箱）。 */
+    private List<String> splitValues(String raw) {
+        if (raw == null || raw.isBlank()) return List.of();
+        return java.util.Arrays.stream(raw.split("[、，,;；/\\s]+"))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .toList();
+    }
+
+    /** 取拆分后第 index 个值，越界返回空串（如一行只有一个邮箱但有两个负责人）。 */
+    private String pickAt(List<String> values, int index) {
+        return values != null && index < values.size() ? values.get(index) : "";
     }
 
     private String joinNumbers(List<Integer> values) {

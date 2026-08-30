@@ -13,14 +13,6 @@
     </header>
 
     <el-form label-position="top" class="settings-form">
-      <el-form-item label="服务商预设">
-        <el-radio-group v-model="presetKey" size="small" @change="applyPreset">
-          <el-radio-button v-for="(preset, key) in presets" :key="key" :value="key">
-            {{ preset.label }}
-          </el-radio-button>
-        </el-radio-group>
-      </el-form-item>
-
       <el-form-item label="服务地址">
         <el-input v-model="aiForm.baseUrl" placeholder="https://api.deepseek.com" />
       </el-form-item>
@@ -72,21 +64,6 @@ const saving = ref(false);
 const testing = ref(false);
 const apiKeyMasked = ref("");
 const aiForm = ref({ enabled: false, baseUrl: "", model: "", apiKey: "" });
-
-const presets = {
-  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com", model: "deepseek-chat" },
-  qwen: { label: "通义千问", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", model: "qwen-plus" },
-  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" },
-  local: { label: "本地/内网", baseUrl: "http://127.0.0.1:11434/v1", model: "qwen2.5:7b" },
-};
-const presetKey = ref<keyof typeof presets | "">("");
-
-function applyPreset(key: string) {
-  const preset = presets[key as keyof typeof presets];
-  if (!preset) return;
-  aiForm.value.baseUrl = preset.baseUrl;
-  aiForm.value.model = preset.model;
-}
 
 onMounted(async () => {
   try {
