@@ -832,6 +832,13 @@ button {
   font-size: 12px;
 }
 
+.success-banner .recognition-tag {
+  margin-left: 8px;
+  color: #94a1b5;
+  font-size: 11px;
+  font-style: normal;
+}
+
 .form-section + .form-section {
   margin-top: 22px;
 }
@@ -1260,6 +1267,397 @@ i.red {
 .overlay-fade-enter-from,
 .overlay-fade-leave-to {
   opacity: 0;
+}
+
+/* ===== 通讯录 ===== */
+.contact-panel {
+  margin-top: 28px;
+  padding: 16px 16px 12px;
+}
+
+.contact-panel .panel-head {
+  align-items: center;
+}
+
+.import-mode {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  color: #41506a;
+  font-size: 13px;
+}
+
+.import-mode > span {
+  font-weight: 700;
+}
+
+/* 弹窗底栏左侧的次要操作（如「下载模板」），与右侧按钮组分开 */
+.el-dialog__footer .footer-left {
+  float: left;
+  margin-right: 12px;
+}
+
+/* 新建任务向导：通讯录匹配结果提示条 */
+.match-banner {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #ccefe8;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #ecfffa, #f9ffff);
+}
+
+.match-banner.warn {
+  border-color: #ffe6cc;
+  background: linear-gradient(90deg, #fff8ef, #ffffff);
+}
+
+.match-banner .el-icon {
+  color: var(--green);
+  font-size: 20px;
+}
+
+.match-banner.warn .el-icon {
+  color: var(--orange);
+}
+
+.match-banner strong,
+.match-banner p {
+  display: block;
+  margin: 0;
+}
+
+.match-banner strong {
+  font-size: 13px;
+}
+
+.match-banner p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* =========================================================
+   动效系统 Motion System
+   原则：只动画 transform / opacity（走 GPU 合成层），
+   退出比进入快，长列表交错总量封顶 400ms。
+   ========================================================= */
+:root {
+  --motion-fast: 150ms;
+  --motion-base: 240ms;
+  --motion-slow: 320ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ===== 1. 路由切换过渡 ===== */
+.page-view {
+  /* 注意：不能在这里用 will-change: transform / 实际 transform，
+     它们会把本元素变成 fixed 后代的定位基准（containing block），
+     导致 el-dialog 等 fixed 遮罩相对页面而非视口定位、出现错位。 */
+}
+
+.page-enter-active {
+  transition:
+    opacity var(--motion-slow) var(--ease-out),
+    transform var(--motion-slow) var(--ease-out);
+}
+
+.page-leave-active {
+  transition: opacity 160ms var(--ease-in-out);
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.page-leave-to {
+  opacity: 0;
+}
+
+/* ===== 2. 列表 / 卡片交错入场 ===== */
+.stagger > * {
+  animation: rise-in 360ms var(--ease-out) both;
+}
+
+.stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.stagger > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.stagger > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.stagger > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+.stagger > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+
+.stagger > *:nth-child(n + 6) {
+  animation-delay: 300ms;
+}
+
+/* 表格行：仅首次数据到达时播放一次，封顶 400ms */
+.rows-reveal .el-table__row {
+  animation: rise-in 300ms var(--ease-out) both;
+}
+
+.rows-reveal .el-table__row:nth-child(1) {
+  animation-delay: 0ms;
+}
+.rows-reveal .el-table__row:nth-child(2) {
+  animation-delay: 45ms;
+}
+.rows-reveal .el-table__row:nth-child(3) {
+  animation-delay: 90ms;
+}
+.rows-reveal .el-table__row:nth-child(4) {
+  animation-delay: 135ms;
+}
+.rows-reveal .el-table__row:nth-child(5) {
+  animation-delay: 180ms;
+}
+.rows-reveal .el-table__row:nth-child(6) {
+  animation-delay: 225ms;
+}
+.rows-reveal .el-table__row:nth-child(7) {
+  animation-delay: 270ms;
+}
+.rows-reveal .el-table__row:nth-child(n + 8) {
+  animation-delay: 400ms;
+}
+
+/* ===== 3. 弹窗 / 抽屉 / Toast 微交互 ===== */
+/*
+ * 遮罩层（transition 根元素）只做 opacity 淡入淡出，绝不能跑 transform 动画，
+ * 否则会破坏 fixed 全屏定位；也不要叠加 transition（动画结束后 transition 会
+ * 把 opacity 从 0 闪回 1，表现为「关闭后遮罩闪烁一下」）。
+ * 弹窗本体（.el-overlay-dialog / .el-message-box）进入带轻微位移+缩放，退出只淡出。
+ */
+.dialog-fade-enter-active,
+.msgbox-fade-enter-active {
+  animation: overlay-fade-in var(--motion-base) var(--ease-out);
+}
+
+.dialog-fade-leave-active,
+.msgbox-fade-leave-active {
+  animation: overlay-fade-out 160ms var(--ease-in-out) forwards;
+}
+
+.dialog-fade-enter-active .el-overlay-dialog {
+  animation: dialog-in var(--motion-base) var(--ease-out);
+}
+
+.dialog-fade-leave-active .el-overlay-dialog {
+  animation: dialog-out 160ms var(--ease-in-out) forwards;
+}
+
+.msgbox-fade-enter-active .el-message-box {
+  animation: msgbox-in 220ms var(--ease-spring);
+}
+
+.msgbox-fade-leave-active .el-message-box {
+  animation: msgbox-out 160ms var(--ease-in-out) forwards;
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -18px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes dialog-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0) scale(0.98);
+  }
+}
+
+@keyframes msgbox-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes msgbox-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+/* Toast：保留 Element Plus 自带动画，不叠加自定义 transition，避免关闭时闪回 */
+
+
+/* ===== 4. 按钮 / 卡片反馈 ===== */
+.el-button {
+  transition:
+    transform 120ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
+}
+
+.el-button:not(.is-disabled):active {
+  transform: scale(0.96);
+}
+
+.el-button:not(.is-disabled):focus-visible {
+  box-shadow: 0 0 0 3px rgba(20, 104, 244, 0.22);
+}
+
+.metric-card,
+.panel,
+.wizard-card,
+.settings-card {
+  transition:
+    transform 200ms var(--ease-out),
+    box-shadow 200ms var(--ease-out);
+}
+
+.metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+
+.metric-card .el-icon {
+  transition: transform 260ms var(--ease-spring);
+}
+
+.metric-card:hover .el-icon {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+.side-nav button {
+  transition:
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+
+.side-nav button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.back-button {
+  transition:
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+
+.back-button:hover {
+  background: #eef5ff;
+  color: var(--blue);
+  transform: translateX(-2px);
+}
+
+.upload-compact {
+  transition:
+    border-color 160ms var(--ease-out),
+    background 200ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+
+.upload-compact:hover {
+  transform: translateY(-2px);
+}
+
+.task-table .el-table__row {
+  transition: transform 160ms var(--ease-out);
+}
+
+.task-table .el-table__cell {
+  transition: background-color 160ms var(--ease-out);
+}
+
+/* 详情页标签切换时内容轻微浮入 */
+.detail-tabs .el-tab-pane {
+  animation: rise-in 260ms var(--ease-out);
+}
+
+/* ===== 5. 降级：尊重系统「减少动效」设置 ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .page-enter-from,
+  .page-leave-to {
+    opacity: 1;
+    transform: none;
+  }
+
+  .el-button:not(.is-disabled):active {
+    transform: none;
+  }
 }
 
 @media (max-width: 980px) {

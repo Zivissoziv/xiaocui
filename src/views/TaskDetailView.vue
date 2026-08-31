@@ -148,7 +148,8 @@
     </main>
   </div>
 
-  <el-dialog v-model="previewVisible" title="上传最新版 · 差异预览" width="720px" :close-on-click-modal="false">
+  <el-dialog v-model="previewVisible" title="上传最新版 · 差异预览" width="720px" :close-on-click-modal="false"
+             append-to-body>
     <div v-if="preview" class="refresh-preview">
       <div class="diff-summary">
         <span class="diff-chip add">新增 {{ preview.added.length }}</span>
@@ -177,7 +178,8 @@
     </template>
   </el-dialog>
 
-  <el-dialog v-model="editVisible" title="修改人员信息" width="420px" :close-on-click-modal="false">
+  <el-dialog v-model="editVisible" title="修改人员信息" width="420px" :close-on-click-modal="false"
+             append-to-body>
     <el-form label-position="top" class="settings-form">
       <el-form-item label="姓名">
         <el-input v-model="editForm.name" placeholder="负责人姓名" />
@@ -226,7 +228,8 @@
     </Transition>
   </Teleport>
 
-  <el-dialog v-model="editMetaVisible" title="编辑任务信息" width="420px" :close-on-click-modal="false">
+  <el-dialog v-model="editMetaVisible" title="编辑任务信息" width="420px" :close-on-click-modal="false"
+             append-to-body>
     <el-form label-position="top" class="settings-form">
       <el-form-item label="任务名称">
         <el-input v-model="editMetaForm.title" placeholder="任务名称" maxlength="60" show-word-limit />

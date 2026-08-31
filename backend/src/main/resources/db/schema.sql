@@ -111,6 +111,18 @@ CREATE TABLE IF NOT EXISTS reminder_events (
   failed_reason TEXT
 );
 
+-- 通讯录：维护人员姓名与邮箱，供新建催办任务时按姓名自动补全联系方式。
+-- 不做姓名唯一约束：允许同名（不同部门），匹配时取更新时间最新的一条。
+CREATE TABLE IF NOT EXISTS address_book_contacts (
+  id BIGINT PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  department VARCHAR(128),
+  phone VARCHAR(128),
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+);
+
 -- 系统级配置，一期用于存放 AI 连接参数（baseUrl / model / apiKey / enabled）。
 -- apiKey 明文入库，但对外接口只返回掩码，且不写日志。
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -126,3 +138,4 @@ CREATE INDEX IF NOT EXISTS idx_tasks_item ON followup_tasks (followup_item_id);
 CREATE INDEX IF NOT EXISTS idx_events_session ON reminder_events (session_id);
 CREATE INDEX IF NOT EXISTS idx_snapshots_session ON sheet_snapshots (session_id);
 CREATE INDEX IF NOT EXISTS idx_analyses_session ON ai_table_analyses (session_id);
+CREATE INDEX IF NOT EXISTS idx_address_book_name ON address_book_contacts (name);

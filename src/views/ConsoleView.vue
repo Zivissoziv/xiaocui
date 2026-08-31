@@ -7,7 +7,7 @@
     <el-button type="primary" :icon="Plus" @click="router.push({ name: 'new-task' })">新建催办任务</el-button>
   </header>
 
-  <section class="metric-grid" aria-label="任务统计">
+  <section class="metric-grid stagger" aria-label="任务统计">
     <article v-for="metric in metrics" :key="metric.label" :class="['metric-card', metric.tone]">
       <span>{{ metric.label }}</span>
       <strong>{{ metric.value }}</strong>
@@ -25,7 +25,7 @@
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
     </div>
-    <el-table :data="filteredTasks" class="task-table">
+    <el-table :data="filteredTasks" :class="['task-table', { 'rows-reveal': tableReveal }]">
       <el-table-column prop="title" label="任务名称" min-width="180" show-overflow-tooltip />
       <el-table-column prop="file" label="文件名" min-width="150" show-overflow-tooltip />
       <el-table-column label="总催办人数" width="100" align="center">
@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
@@ -79,6 +79,21 @@ import { useFollowupStore, type FollowupTask } from "../stores/followup";
 const router = useRouter();
 const store = useFollowupStore();
 const taskKeyword = ref("");
+
+/** 表格行只在数据首次到达时做一次交错入场，避免搜索过滤时反复闪动 */
+const tableReveal = ref(false);
+let tableRevealTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => store.tasks.length,
+  (count) => {
+    if (count > 0 && !tableReveal.value) {
+      tableReveal.value = true;
+      tableRevealTimer = setTimeout(() => (tableReveal.value = false), 900);
+    }
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => clearTimeout(tableRevealTimer));
 
 /** 最近催办时间 = 该任务最新一条发送留痕的时间，无留痕显示 —。 */
 function lastSentAt(taskId: number): string {

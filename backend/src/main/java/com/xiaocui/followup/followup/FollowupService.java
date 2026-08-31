@@ -61,7 +61,11 @@ public class FollowupService {
             FollowupItem current = existingByOwner.get(draft.ownerRaw());
 
             // 根据最新联系方式重新判定待办状态：避免编辑邮箱清空后状态长期停留在 ready_to_send。
-            String latestStatus = (!isBlank(draft.emailHint()) || !isBlank(draft.phoneHint())) ? "ready_to_send" : "needs_manual_review";
+            // 走 ContactService 而非直接看 draft，这样表格里没写邮箱、但通讯录里有的人也能被补全。
+            ContactMatch latest = contactService.match(draft);
+            String latestStatus = "needs_confirmation".equals(latest.matchStatus())
+                    ? "needs_manual_review"
+                    : "ready_to_send";
 
             if (current == null) {
                 ContactMatch match = contactService.match(draft);

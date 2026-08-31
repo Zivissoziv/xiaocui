@@ -13,6 +13,9 @@
         <button :class="{ active: isActive(['console']) }" @click="router.push({ name: 'console' })">
           <el-icon><HomeFilled /></el-icon><span>首页</span>
         </button>
+        <button :class="{ active: isActive(['contacts']) }" @click="router.push({ name: 'contacts' })">
+          <el-icon><User /></el-icon><span>通讯录</span>
+        </button>
         <button :class="{ active: isActive(['settings']) }" @click="router.push({ name: 'settings' })">
           <el-icon><Setting /></el-icon><span>设置</span>
         </button>
@@ -26,7 +29,13 @@
     </aside>
 
     <main class="workspace">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <transition name="page" mode="out-in">
+          <div :key="route.fullPath" class="page-view">
+            <component :is="Component" />
+          </div>
+        </transition>
+      </router-view>
     </main>
   </div>
 </template>
@@ -34,7 +43,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { HomeFilled, InfoFilled, Setting } from "@element-plus/icons-vue";
+import { HomeFilled, InfoFilled, Setting, User } from "@element-plus/icons-vue";
 const route = useRoute();
 const router = useRouter();
 

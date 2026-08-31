@@ -242,7 +242,8 @@ export async function deleteSession(sessionId: number) {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit, timeoutMs = 90_000): Promise<T> {
+/** 通用 JSON 请求。对外导出，供其它模块的 api 文件复用同一套错误提示与超时处理。 */
+export async function request<T>(path: string, init?: RequestInit, timeoutMs = 90_000): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
