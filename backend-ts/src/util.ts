@@ -40,3 +40,17 @@ export function splitAndTrim(raw: string, separator: RegExp): string[] {
 export function joinWith(values: string[], separator: string): string {
   return values.join(separator);
 }
+
+/**
+ * 修复 multer/busboy 的文件名乱码：multipart 的 filename 按 latin1 解码，
+ * 浏览器实际发送 UTF-8，中文文件名会变成「æµ‹è¯•.xlsx」这类乱码。
+ * 转回 UTF-8；纯 ASCII 名称转码前后一致，不受影响。
+ */
+export function fixFileName(name: string | undefined): string | undefined {
+  if (!name) return name;
+  try {
+    return Buffer.from(name, 'latin1').toString('utf8');
+  } catch {
+    return name;
+  }
+}

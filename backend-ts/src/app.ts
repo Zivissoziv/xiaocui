@@ -6,7 +6,7 @@ import * as repository from './repository';
 import * as addressBook from './addressBook';
 import * as settings from './settings';
 import { HttpError, SendRequest, UpdateFollowupItemRequest } from './types';
-import { isBlank } from './util';
+import { fixFileName, isBlank } from './util';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -56,7 +56,7 @@ app.post('/api/analysis-sessions', upload.single('file'), wrap(async (req, res) 
   const instruction = req.body['instruction'];
   if (isBlank(instruction)) throw new HttpError('instruction 不能为空');
   res.json(await sessionService.createAndAnalyze(
-    { buffer: req.file.buffer, originalname: req.file.originalname },
+    { buffer: req.file.buffer, originalname: fixFileName(req.file.originalname) },
     req.body['title'] ?? null,
     instruction,
     req.body['dueAt'] ?? null
@@ -106,7 +106,7 @@ app.post('/api/analysis-sessions/:sessionId/refresh', upload.single('file'), wra
   if (!req.file) throw new HttpError('请上传 Excel 文件');
   res.json(await sessionService.refresh(
     Number(req.params.sessionId),
-    { buffer: req.file.buffer, originalname: req.file.originalname }
+    { buffer: req.file.buffer, originalname: fixFileName(req.file.originalname) }
   ));
 }));
 
@@ -114,7 +114,7 @@ app.post('/api/analysis-sessions/:sessionId/refresh-preview', upload.single('fil
   if (!req.file) throw new HttpError('请上传 Excel 文件');
   res.json(await sessionService.previewRefresh(
     Number(req.params.sessionId),
-    { buffer: req.file.buffer, originalname: req.file.originalname }
+    { buffer: req.file.buffer, originalname: fixFileName(req.file.originalname) }
   ));
 }));
 
