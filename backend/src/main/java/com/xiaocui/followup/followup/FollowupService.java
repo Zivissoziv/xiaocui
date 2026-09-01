@@ -1,6 +1,8 @@
 package com.xiaocui.followup.followup;
 
 import com.xiaocui.followup.aianalysis.AiAnalysisResult;
+import com.xiaocui.followup.aianalysis.AiAnalysisService;
+import com.xiaocui.followup.aianalysis.DraftBuilder;
 import com.xiaocui.followup.aianalysis.FollowupDraft;
 import com.xiaocui.followup.contact.ContactMatch;
 import com.xiaocui.followup.contact.ContactService;
@@ -24,11 +26,19 @@ public class FollowupService {
     private final ContactService contactService;
     private final MessageSender sender;
     private final SessionRepository repository;
+    private final AiAnalysisService aiAnalysisService;
+    private final DraftBuilder draftBuilder;
 
-    public FollowupService(ContactService contactService, MessageSender sender, SessionRepository repository) {
+    public FollowupService(ContactService contactService,
+                           MessageSender sender,
+                           SessionRepository repository,
+                           AiAnalysisService aiAnalysisService,
+                           DraftBuilder draftBuilder) {
         this.contactService = contactService;
         this.sender = sender;
         this.repository = repository;
+        this.aiAnalysisService = aiAnalysisService;
+        this.draftBuilder = draftBuilder;
     }
 
     @Transactional
@@ -253,6 +263,59 @@ public class FollowupService {
         String message = firstNonBlank(request.messageFinal(), task.messageFinal());
         repository.replaceTask(task.withMessage(message));
         return detail(item.sessionId());
+    }
+
+    /**
+     * 按当前模板（或模型）重生成催办文案，用于模板改版后刷新历史任务、或手工改乱了想重来。
+     * 已补充完整（resolved）的人跳过——没有缺项可催，重写出来的文案也是空的。
+     * 其余状态一律重写：发送留痕存的是当时的快照，改文案不会篡改已经发出去的内容。
+     */
+    @Transactional
+    public SessionDetail regenerateMessages(long sessionId) {
+        AnalysisSession session = repository.findSession(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("会话不存在"));
+        List<FollowupItem> pending = repository.getItems(sessionId).stream()
+                .filter(item -> !"resolved".equals(item.status()))
+                .toList();
+
+        Map<String, String> generated = new LinkedHashMap<>();
+        if (!pending.isEmpty()) {
+            List<FollowupDraft> drafts = new ArrayList<>();
+            for (FollowupItem item : pending) drafts.add(toDraft(item));
+            List<String> risks = new ArrayList<>();
+            aiAnalysisService.regenerateMessages(drafts, session.userInstruction(), session.dueAt(), risks);
+            for (FollowupDraft draft : drafts) {
+                if (!isBlank(draft.messageDraft())) generated.put(draft.ownerRaw(), draft.messageDraft());
+            }
+        }
+
+        for (FollowupItem item : pending) {
+            String fromAi = generated.get(item.displayName());
+            final String message = isBlank(fromAi)
+                    ? draftBuilder.buildMessage(item.displayName(), item.missingFields(), item.businessSummary(),
+                            firstNonBlank(item.dueAt(), session.dueAt()))
+                    : fromAi;
+            repository.findTaskByItem(sessionId, item.id()).ifPresent(task -> {
+                repository.replaceTask(task.withMessages(message, message));
+            });
+        }
+        return detail(sessionId);
+    }
+
+    private FollowupDraft toDraft(FollowupItem item) {
+        return new FollowupDraft(
+                item.displayName(),
+                item.employeeId(),
+                item.departmentId(),
+                item.email(),
+                item.phone(),
+                item.sourceRows(),
+                item.missingFields(),
+                item.filledFieldsSnapshot(),
+                item.businessSummary(),
+                item.issueSummary(),
+                ""
+        );
     }
 
     public SessionDetail send(long sessionId, SendRequest request) {

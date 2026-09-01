@@ -22,7 +22,7 @@ public class DraftBuilder {
                             List<String> employees, List<String> departments) {
     }
 
-    public List<FollowupDraft> build(SheetData sheet, ColumnPlan plan, String instruction, String dueAt, List<String> risks) {
+    public List<FollowupDraft> build(SheetData sheet, ColumnPlan plan, String dueAt, List<String> risks) {
         Map<String, List<OwnerRow>> grouped = new LinkedHashMap<>();
         for (SheetData.RowData row : sheet.rows()) {
             List<String> owners = splitValues(get(row, plan.ownerColumn()));
@@ -84,17 +84,20 @@ public class DraftBuilder {
                     filled,
                     businessSummary,
                     issueSummary,
-                    buildMessage(displayName, new ArrayList<>(missing), businessSummary, instruction, dueAt)
+                    buildMessage(displayName, new ArrayList<>(missing), businessSummary, dueAt)
             ));
         });
         return drafts;
     }
 
-    public String buildMessage(String owner, List<String> missing, String businessSummary, String instruction, String dueAt) {
+    /**
+     * 模板文案只讲「谁、缺什么、什么时候前」，不照抄用户的催办要求原文：
+     * 那段要求是用来判定催谁的，收件人看到反而莫名其妙。
+     */
+    public String buildMessage(String owner, List<String> missing, String businessSummary, String dueAt) {
         String due = dueAt == null || dueAt.isBlank() ? "截止时间前" : dueAt;
-        String instructionText = instruction == null || instruction.isBlank() ? "" : "本次要求：" + instruction + "。";
-        return "%s你好，%s你负责的 %s 还有 %s 待补充，请在 %s 前更新表格，谢谢。"
-                .formatted(owner, instructionText, businessSummary, String.join("、", missing), due);
+        return "%s你好，你负责的 %s 还有 %s 待补充，请在 %s 前更新表格，谢谢。"
+                .formatted(owner, businessSummary, String.join("、", missing), due);
     }
 
     private String get(SheetData.RowData row, String column) {

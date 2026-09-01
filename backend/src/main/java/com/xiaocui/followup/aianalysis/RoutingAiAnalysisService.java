@@ -54,4 +54,16 @@ public class RoutingAiAnalysisService implements AiAnalysisService {
         risks.addAll(fallback.risks());
         return new AiAnalysisResult(fallback.tableSummary(), fallback.columnPlan(), fallback.followupItems(), risks);
     }
+
+    /** 重生成文案：模型不可用时直接返回 false，让调用方用模板文案，不把异常抛给用户。 */
+    @Override
+    public boolean regenerateMessages(List<FollowupDraft> drafts, String userInstruction, String dueAt, List<String> risks) {
+        if (!settingsService.load().usable()) return false;
+        try {
+            return aiService.regenerateMessages(drafts, userInstruction, dueAt, risks);
+        } catch (Exception error) {
+            log.warn("AI 重生成文案失败，回退到模板文案：{}", error.getClass().getSimpleName());
+            return false;
+        }
+    }
 }

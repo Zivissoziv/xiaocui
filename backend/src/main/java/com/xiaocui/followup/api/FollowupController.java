@@ -74,6 +74,11 @@ public class FollowupController {
         return sessionService.updateMeta(sessionId, request.title(), request.dueAt());
     }
 
+    @PostMapping("/analysis-sessions/{sessionId}/messages/regenerate")
+    public SessionDetail regenerateMessages(@PathVariable long sessionId) {
+        return followupService.regenerateMessages(sessionId);
+    }
+
     @DeleteMapping("/analysis-sessions/{sessionId}")
     public void deleteSession(@PathVariable long sessionId) {
         repository.findSession(sessionId).orElseThrow(() -> new IllegalArgumentException("会话不存在"));

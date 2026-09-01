@@ -62,7 +62,7 @@ public class SpringAiAnalysisService implements AiAnalysisService {
             risks.add("模型未能识别列结构，已回退到关键词规则。");
         }
 
-        List<FollowupDraft> drafts = draftBuilder.build(sheet, plan, instruction, dueAt, risks);
+        List<FollowupDraft> drafts = draftBuilder.build(sheet, plan, dueAt, risks);
         if (!drafts.isEmpty()) {
             generateMessages(model, drafts, instruction, dueAt, risks);
         }
@@ -123,6 +123,25 @@ public class SpringAiAnalysisService implements AiAnalysisService {
         }
     }
 
+    /**
+     * 对外：只重生成催办文案（不动列识别与缺项判定）。
+     * 用户在详情页点「重生成文案」、或模板改版后刷新历史任务时走这里。
+     *
+     * @return 是否至少生成了一条文案；false 表示应由调用方回退到模板文案。
+     */
+    @Override
+    public boolean regenerateMessages(List<FollowupDraft> drafts, String instruction, String dueAt, List<String> risks) {
+        if (drafts == null || drafts.isEmpty()) return false;
+        try {
+            OpenAiChatModel model = factory.build(settingsService.load());
+            generateMessages(model, drafts, instruction, dueAt, risks);
+        } catch (Exception error) {
+            risks.add("模型不可用，已使用模板文案：" + shorten(error.getMessage()));
+            return false;
+        }
+        return drafts.stream().anyMatch(draft -> draft.messageDraft() != null && !draft.messageDraft().isBlank());
+    }
+
     /** 第二步：把程序判定出的缺项交给模型，生成更自然的催办文案。 */
     private void generateMessages(OpenAiChatModel model, List<FollowupDraft> drafts,
                                   String instruction, String dueAt, List<String> risks) {
@@ -147,7 +166,9 @@ public class SpringAiAnalysisService implements AiAnalysisService {
                 请只输出一个 JSON 对象，不要解释文字、不要代码块标记，格式如下：
                 {"messages":[{"owner":"负责人姓名","message":"催办消息正文"}]}
                 要求：每条正文不超过 80 字；写清楚缺哪几个字段和截止时间；语气礼貌但明确；
-                不要加入你推测出来但实际没有的信息；负责人姓名必须与输入完全一致。
+                不要加入你推测出来但实际没有的信息；负责人姓名必须与输入完全一致；
+                不要把「催办要求」原文搬进正文（例如不要出现“本次要求：……”这类字样），
+                它只是给你判断范围的背景，收件人只需要知道自己缺什么、什么时候前补。
                 """.formatted(instruction == null ? "" : instruction,
                 dueAt == null || dueAt.isBlank() ? "未指定，写“尽快”" : dueAt, items);
 

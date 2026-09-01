@@ -156,6 +156,13 @@ export async function updateSessionMeta(sessionId: number, payload: { title?: st
   });
 }
 
+/** 按最新模板重生成催办文案。后端只重写「未发送」的，已发送/已关闭的原文案保留不动。 */
+export async function regenerateMessages(sessionId: number) {
+  return request<BackendSessionDetail>(`/api/analysis-sessions/${sessionId}/messages/regenerate`, {
+    method: "POST",
+  });
+}
+
 export async function refreshSession(sessionId: number, file: File) {
   const form = new FormData();
   form.append("file", file);

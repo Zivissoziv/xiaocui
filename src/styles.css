@@ -1269,6 +1269,56 @@ i.red {
   opacity: 0;
 }
 
+/* ===== 详情页：催办文案列与编辑弹窗 ===== */
+.message-preview {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: #41506a;
+  font-size: 13px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+.message-preview > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  transition: color 160ms var(--ease-out);
+}
+
+.message-preview:hover > span {
+  color: var(--blue);
+}
+
+.message-edit-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--blue);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.el-table__row:hover .message-edit-icon {
+  opacity: 1;
+}
+
+/* 表单标签行内放操作按钮：标题靠左，按钮靠右 */
+.label-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.label-actions {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
 /* ===== 通讯录 ===== */
 .contact-panel {
   margin-top: 28px;

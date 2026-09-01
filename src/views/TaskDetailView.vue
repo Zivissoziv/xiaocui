@@ -59,6 +59,7 @@
               <h3>人员进度明细</h3>
               <div class="person-actions">
                 <span class="person-hint">勾选后批量催办；已发送的人可再次提醒</span>
+                <el-button :icon="RefreshRight" plain :loading="busy" @click="handleRegenerate">重生成文案</el-button>
                 <el-button type="primary" :icon="Message" :loading="busy" :disabled="selectedPeople.length === 0"
                            @click="sendSelected">发送所选（{{ selectedPeople.length }}）</el-button>
               </div>
@@ -78,6 +79,16 @@
               </el-table-column>
               <el-table-column label="缺失内容" min-width="150">
                 <template #default="{ row }">{{ row.missing.join("、") || "无" }}</template>
+              </el-table-column>
+              <el-table-column label="催办文案" min-width="240" class-name="message-cell">
+                <template #default="{ row }">
+                  <div class="message-preview" :title="row.messageFinal" @click="openEditPerson(row)">
+                    <span :class="{ 'muted-cell': !row.messageFinal }">
+                      {{ row.messageFinal || "暂无文案，点击填写" }}
+                    </span>
+                    <el-icon class="message-edit-icon" aria-hidden="true"><EditPen /></el-icon>
+                  </div>
+                </template>
               </el-table-column>
               <el-table-column prop="sourceRows" label="来源行" width="90" />
               <el-table-column label="状态" width="90" align="center">
@@ -178,7 +189,7 @@
     </template>
   </el-dialog>
 
-  <el-dialog v-model="editVisible" title="修改人员信息" width="420px" :close-on-click-modal="false"
+  <el-dialog v-model="editVisible" title="修改人员信息与催办文案" width="560px" :close-on-click-modal="false"
              append-to-body>
     <el-form label-position="top" class="settings-form">
       <el-form-item label="姓名">
@@ -186,6 +197,23 @@
       </el-form-item>
       <el-form-item label="邮箱">
         <el-input v-model="editForm.email" placeholder="用于发送催办提醒" />
+      </el-form-item>
+      <el-form-item>
+        <template #label>
+          <div class="label-row">
+            <span>催办文案</span>
+            <span class="label-actions">
+              <el-button link type="primary" size="small" :disabled="!editForm.message.trim()"
+                         @click="copyMessage">复制</el-button>
+              <el-button link type="primary" size="small"
+                         :disabled="!editForm.messageDraft || editForm.messageDraft === editForm.message"
+                         @click="resetMessage">恢复 AI 原文案</el-button>
+            </span>
+          </div>
+        </template>
+        <el-input v-model="editForm.message" type="textarea" :rows="8" maxlength="500" show-word-limit
+                  placeholder="填写催办时要发送的内容" />
+        <small class="form-hint">保存后，下次催办按此文案发送，并原样记入发送留痕。</small>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -251,10 +279,11 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Back, Download, EditPen, Message, Refresh } from "@element-plus/icons-vue";
+import { Back, Download, EditPen, Message, Refresh, RefreshRight } from "@element-plus/icons-vue";
 import {
   deleteFollowupItem,
   previewRefreshSession,
+  regenerateMessages,
   sendFollowups,
   updateFollowupItem,
   updateSessionMeta,
@@ -413,6 +442,29 @@ async function applyRefresh() {
   }
 }
 
+/** 模板改版后，一键把还没发出去的文案刷成新模板；已发送/已关闭的不动，避免改掉已经发出去的内容。 */
+async function handleRegenerate() {
+  try {
+    await ElMessageBox.confirm(
+      "将按最新模板重新生成全部待补充人员的催办文案，手工改过的内容会被覆盖；已补充完整的人不受影响，已发送的历史留痕也不会被篡改。",
+      "重生成催办文案",
+      { confirmButtonText: "重新生成", cancelButtonText: "取消", type: "warning" },
+    );
+  } catch {
+    return; // 用户取消
+  }
+  busy.value = true;
+  try {
+    const detail = await regenerateMessages(taskId.value);
+    store.upsertSessionDetail(detail);
+    ElMessage.success("已按最新模板重生成文案");
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "重生成失败");
+  } finally {
+    busy.value = false;
+  }
+}
+
 const selectedPeople = ref<FollowupPerson[]>([]);
 
 function onSelectionChange(rows: FollowupPerson[]) {
@@ -421,11 +473,34 @@ function onSelectionChange(rows: FollowupPerson[]) {
 
 const editVisible = ref(false);
 const savingEdit = ref(false);
-const editForm = ref({ id: 0, name: "", email: "" });
+const editForm = ref({ id: 0, name: "", email: "", message: "", messageDraft: "" });
 
 function openEditPerson(row: FollowupPerson) {
-  editForm.value = { id: row.id, name: row.name, email: row.email };
+  editForm.value = {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    // 人工改过的存 messageFinal；没改过时回落到 AI 原文案，避免看到空白框。
+    message: row.messageFinal || row.messageDraft,
+    messageDraft: row.messageDraft,
+  };
   editVisible.value = true;
+}
+
+/** 放弃人工修改，回到 AI 生成的原始文案（保存后才生效）。 */
+function resetMessage() {
+  editForm.value.message = editForm.value.messageDraft;
+}
+
+async function copyMessage() {
+  const text = editForm.value.message.trim();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    ElMessage.success("已复制催办文案");
+  } catch {
+    ElMessage.warning("浏览器拒绝了剪贴板访问，请手动选中复制");
+  }
 }
 
 async function saveEditPerson() {
@@ -433,11 +508,17 @@ async function saveEditPerson() {
     ElMessage.warning("姓名不能为空");
     return;
   }
+  const message = editForm.value.message.trim();
+  if (!message) {
+    ElMessage.warning("催办文案不能为空，可点击「恢复 AI 原文案」");
+    return;
+  }
   savingEdit.value = true;
   try {
     const detail = await updateFollowupItem(editForm.value.id, {
       displayName: editForm.value.name.trim(),
       email: editForm.value.email.trim(),
+      messageFinal: message,
     });
     store.upsertSessionDetail(detail);
     editVisible.value = false;
@@ -533,7 +614,7 @@ async function send(itemIds: number[]) {
 }
 
 function exportProgress() {
-  const header = ["负责人", "部门", "缺失内容", "来源行", "状态", "发送状态"];
+  const header = ["负责人", "部门", "缺失内容", "来源行", "状态", "发送状态", "催办文案"];
   const rows = people.value.map((person) => [
     person.name,
     person.department,
@@ -541,6 +622,8 @@ function exportProgress() {
     person.sourceRows,
     person.status,
     person.sendStatus,
+    // 文案里的换行会让 CSV 行断裂，导出前压平成单行。
+    (person.messageFinal || person.messageDraft).replace(/\s+/g, " ").trim(),
   ]);
   const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
   const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });

@@ -34,7 +34,7 @@ public class RuleBasedAiAnalysisService implements AiAnalysisService {
                 .orElseThrow();
         ColumnPlan plan = inferColumnPlan(sheet, sheetProfile, userInstruction);
         List<String> risks = new ArrayList<>();
-        List<FollowupDraft> drafts = draftBuilder.build(sheet, plan, userInstruction, dueAt, risks);
+        List<FollowupDraft> drafts = draftBuilder.build(sheet, plan, dueAt, risks);
         String summary = "%s / %s 共读取 %d 行，识别 %s 为负责人列，%s 为待补充字段。（关键词规则识别）".formatted(
                 snapshot.fileName(),
                 sheet.sheetName(),
