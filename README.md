@@ -21,7 +21,7 @@
 - **🔁 增量对账** —— 上传最新版 Excel,先预览**新增 / 已补齐 / 仍缺失**的差异,确认后再应用,避免误覆盖。
 - **👥 多人合并行支持** —— 一个项目多负责人 / 部门合并单元格也能正确展开。
 - **🔌 多种 AI 后端** —— 支持自填 OpenAI 兼容 API(如 DeepSeek);未配置时自动回退到关键词规则,服务永不掉线。
-- **🛡️ 隐私可控** —— Excel 文件留在你自己的机器上,数据库是本地 H2 文件,API Key 在设置页加密保存。
+- **🛡️ 隐私可控** —— Excel 文件留在你自己的机器上,数据库是本地 SQLite 文件,API Key 在设置页加密保存。
 - **🎨 友好的 UI** —— Element Plus + Element 风格的卡片 / 表格 / 向导,小崔吉祥物全程陪伴。
 
 ## 📸 界面预览
@@ -51,7 +51,7 @@ AI 告诉你"识别到的负责人列是 X,待补充字段是合同金额、预�
 | 端 | 技术 |
 | --- | --- |
 | **前端** | Vue 3 · TypeScript · Vite 6 · Pinia · Vue Router 4 · Element Plus |
-| **后端** | Spring Boot 3.3 · Java 17 · MyBatis 3 · H2 (开发) / MySQL (生产可选) · Apache POI · Spring AI (OpenAI 兼容) |
+| **后端** | Node.js 22 · TypeScript · Express 4 · multer · SheetJS · `node:sqlite`（内置 SQLite） |
 | **AI** | OpenAI 兼容 API(默认指向 DeepSeek `deepseek-v4-flash`),失败时回退规则引擎 |
 
 ## 📁 项目结构
@@ -71,17 +71,23 @@ xiaocui/
 │   ├── index.html             # Vite 入口
 │   ├── package.json
 │   └── vite.config.ts         # dev 代理:/api → 127.0.0.1:8080
-├── backend/                   # 后端(Spring Boot)
-│   └── src/main/java/com/xiaocui/followup/
-│       ├── aianalysis/        # AI 分析服务(规则 + Spring AI + 路由)
-│       ├── api/               # REST 控制器 + 异常处理
-│       ├── contact/           # 联系人匹配
-│       ├── followup/          # 催办任务、条目、对账
-│       ├── sender/            # 发送器(当前为 manual 复制)
-│       ├── session/           # 分析会话 + Excel 持久化
-│       ├── settings/          # AI 设置
-│       ├── support/           # 工具(JsonCodec / AiModelFactory)
-│       └── tableprofile/      # 表头与字段画像
+├── backend-ts/                # 后端(TypeScript + Express)
+│   └── src/
+│       ├── index.ts           # 入口(端口 8080)
+│       ├── app.ts             # REST 路由 + 异常处理
+│       ├── repository.ts      # SQLite 数据访问层(node:sqlite)
+│       ├── workbook.ts        # Excel 解析(表头探测/合并单元格下推)
+│       ├── tableProfile.ts    # 表头与字段画像
+│       ├── ruleBased.ts       # 规则版 AI 识列
+│       ├── openAiAnalysis.ts  # OpenAI 兼容模型识列
+│       ├── aiRouting.ts       # AI/规则路由降级
+│       ├── draftBuilder.ts    # 催办文案生成
+│       ├── followupService.ts # 催办任务、条目、对账、发送
+│       ├── sessionService.ts  # 分析会话
+│       ├── contact.ts         # 联系人匹配
+│       ├── addressBook.ts     # 通讯录
+│       ├── settings.ts        # AI 设置
+│       └── sender.ts          # 发送器(当前为 manual 复制)
 ├── docs/                      # 设计文档 & 截图
 │   ├── mvp-technical-design.md
 │   ├── architecture-recommendation.md
@@ -96,9 +102,7 @@ xiaocui/
 
 ### 环境要求
 
-- **Node.js** 18+ (推荐 20/22)
-- **Java** 17+ (推荐 17.0.12)
-- **Maven** 3.8+ (或使用项目自带 `mvnw`,如果仓库里有的话)
+- **Node.js** 18+ (推荐 20/22,后端用到内置 `node:sqlite`,建议 22+)
 
 ### 1. 克隆 & 安装
 
@@ -111,15 +115,16 @@ npm install
 ### 2. 启动后端(端口 8080)
 
 ```bash
-cd backend
-mvn spring-boot:run
-# 或: ./mvnw spring-boot:run
+cd backend-ts
+npm install
+npx tsc
+node dist/index.js
 ```
 
 后端启动后会:
-- 在 `backend/data/ai_followup.mv.db` 创建 H2 文件数据库
-- 在 `backend/uploads/` 存放上传的 Excel
-- 在 `http://127.0.0.1:8080/api/...` 提供 REST API
+- 在 `backend-ts/data/ai_followup.db` 创建 SQLite 文件数据库
+- 在 `backend-ts/uploads/` 存放上传的 Excel
+- 在 `http://127.0.0.1:8080/api/...` 提供 REST API(与原 Java 版契约一致)
 
 ### 3. 启动前端(端口 5173)
 
@@ -165,7 +170,7 @@ npm run dev
 - **AI 与规则并存**:`RoutingAiAnalysisService` 优先用模型,失败时静默回退到 `RuleBasedAiAnalysisService`。配置永远不强制。
 - **差异预览,先看再合**:`/api/analysis-sessions/{id}/refresh-preview` 只返回差异,用户点击"确认应用"才走真正落库 —— 避免"再传一次 Excel 就把数据覆盖了"的焦虑。
 - **多负责人 / 合并单元格**:`FollowupService` 解析时按合并区展开,一个人可以同时属于多个项目。
-- **本机优先**:`app.upload-dir` + H2 文件库,Excel 不出本机,适合内部催办这种敏感数据。
+- **本机优先**:`backend-ts/uploads` + SQLite 文件库,Excel 不出本机,适合内部催办这种敏感数据。
 
 详细设计见 [`docs/`](./docs/):
 - [MVP 技术设计](./docs/mvp-technical-design.md)

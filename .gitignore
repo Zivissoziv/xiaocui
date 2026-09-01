@@ -26,3 +26,6 @@ backend-ts/node_modules/
 backend-ts/dist/
 backend-ts/data/
 backend-ts/uploads/
+
+# Java 版后端备份包（已迁移至 backend-ts，本地保留）
+java-backend-backup-*.tar.gz
