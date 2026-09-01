@@ -58,14 +58,19 @@ AI 告诉你"识别到的负责人列是 X,待补充字段是合同金额、预�
 
 ```
 xiaocui/
-├── src/                       # 前端(Vue 3 + TS)
-│   ├── views/                 # 页面:ConsoleView / NewTaskView / TaskDetailView / SettingsView
-│   ├── components/            # 复用组件
-│   ├── layouts/               # AppLayout 主壳
-│   ├── router/                # 路由(hash 模式)
-│   ├── services/              # 与后端 API 通信
-│   ├── stores/                # Pinia 状态
-│   └── styles.css             # 全局样式 + 小崔配色
+├── frontend/                  # 前端(Vue 3 + TS)
+│   ├── src/
+│   │   ├── views/             # 页面:ConsoleView / NewTaskView / TaskDetailView / SettingsView
+│   │   ├── components/        # 复用组件
+│   │   ├── layouts/           # AppLayout 主壳
+│   │   ├── router/            # 路由(hash 模式)
+│   │   ├── services/          # 与后端 API 通信
+│   │   ├── stores/            # Pinia 状态
+│   │   └── styles.css         # 全局样式 + 小崔配色
+│   ├── public/                # 静态资源(图标等)
+│   ├── index.html             # Vite 入口
+│   ├── package.json
+│   └── vite.config.ts         # dev 代理:/api → 127.0.0.1:8080
 ├── backend/                   # 后端(Spring Boot)
 │   └── src/main/java/com/xiaocui/followup/
 │       ├── aianalysis/        # AI 分析服务(规则 + Spring AI + 路由)
@@ -84,10 +89,7 @@ xiaocui/
 │   ├── reminder-tool-plan.md
 │   ├── adr-001 ~ adr-004      # 关键架构决策记录
 │   └── screenshots/           # README 用的截图
-├── 测试数据-项目信息收集.xlsx
-├── index.html
-├── package.json
-└── vite.config.ts
+└── 测试数据-项目信息收集.xlsx
 ```
 
 ## ⚡ 快速开始
@@ -102,7 +104,7 @@ xiaocui/
 
 ```bash
 git clone https://github.com/Zivissoziv/xiaocui.git
-cd xiaocui
+cd xiaocui/frontend
 npm install
 ```
 
@@ -122,7 +124,8 @@ mvn spring-boot:run
 ### 3. 启动前端(端口 5173)
 
 ```bash
-# 回到项目根目录
+# 在项目根目录
+cd frontend
 npm run dev
 ```
 
