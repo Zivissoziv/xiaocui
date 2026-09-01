@@ -20,3 +20,9 @@ backend/uploads/
 
 # 内网部署包产物（含加密密码与明文包，严禁入库）
 deploy/
+
+# TS 后端运行产物
+backend-ts/node_modules/
+backend-ts/dist/
+backend-ts/data/
+backend-ts/uploads/

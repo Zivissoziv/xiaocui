@@ -1,0 +1,23 @@
+{
+  "name": "ai-followup-backend-ts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "xiaocui 后端 TypeScript 重构版（与 Java 版接口契约一致）",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^2.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3"
+  }
+}
