@@ -72,19 +72,23 @@ xiaocui/
 │   ├── package.json
 │   └── vite.config.ts         # dev 代理:/api → 127.0.0.1:8080
 ├── backend-ts/                # 后端(NestJS 12 + TypeScript)
-│   └── src/
-│       ├── main.ts            # NestJS 入口(端口 8080)
-│       ├── app.module.ts      # 根模块
-│       ├── controllers/       # REST 控制器(25 路由,与 Java 版契约一致)
-│       ├── providers/         # 可注入服务:Database/Repository/Settings/AddressBook/
-│       │                      #   Contact/AiRouting/Followup/Session
-│       ├── filters/           # 全局异常过滤器(统一 400 + {message})
-│       ├── workbook.ts        # Excel 解析(表头探测/合并单元格下推)
-│       ├── tableProfile.ts    # 表头与字段画像
-│       ├── ruleBased.ts       # 规则版 AI 识列
-│       ├── openAiAnalysis.ts  # OpenAI 兼容模型识列
-│       ├── draftBuilder.ts    # 催办文案生成
-│       └── sender.ts          # 发送器(当前为 manual 复制)
+│   ├── src/
+│   │   ├── main.ts            # NestJS 入口(端口 8080)
+│   │   ├── app.module.ts      # 根模块
+│   │   ├── controllers/       # REST 控制器(25 路由,与 Java 版契约一致)
+│   │   ├── providers/         # 可注入服务:Database/Repository/Settings/AddressBook/
+│   │   │                      #   Contact/AiRouting/Followup/Session
+│   │   ├── filters/           # 全局异常过滤器(统一 400 + {message})
+│   │   ├── workbook.ts        # Excel 解析(表头探测/合并单元格下推)
+│   │   ├── tableProfile.ts    # 表头与字段画像
+│   │   ├── ruleBased.ts       # 规则版 AI 识列
+│   │   ├── openAiAnalysis.ts  # OpenAI 兼容模型识列
+│   │   ├── draftBuilder.ts    # 催办文案生成
+│   │   └── sender.ts          # 发送器(当前为 manual 复制)
+│   ├── scripts/
+│   │   ├── dev.js             # 开发热重启(tsc --watch + 自动重启)
+│   │   └── build-prod.js      # 一键生产打包(npm run build:prod)
+│   └── deploy/                # 打包产物目录(已 gitignore)
 ├── docs/                      # 设计文档 & 截图
 │   ├── mvp-technical-design.md
 │   ├── architecture-recommendation.md
@@ -99,7 +103,7 @@ xiaocui/
 
 ### 环境要求
 
-- **Node.js** 18+ (推荐 20/22,后端用到内置 `node:sqlite`,建议 22+)
+- **Node.js ≥ 22.5**(后端用 Node 内置 `node:sqlite`,22.5.0 才引入;22 以下无法运行,推荐 22 LTS)
 
 ### 1. 克隆 & 安装
 
@@ -135,7 +139,29 @@ npm start       # 等价于 node dist/main.js
 
 > 换端口:`PORT=3001 npm run dev`。上传目录、数据目录同样支持 `UPLOAD_DIR` / `DATA_DIR` 环境变量覆盖。
 
-### 3. 启动前端(端口 5173)
+### 3. 打包部署(生产环境,服务器无网也可)
+
+`npm run build:prod` 一条命令产出部署包 `backend-ts/deploy/xiaocui-backend.tar.gz`:
+
+```bash
+cd backend-ts
+npm run build:prod              # 全新部署包(不含数据库)
+npm run build:prod -- --with-data   # 连现有 data/(SQLite 库)一起打包
+```
+
+脚本做的事:`tsc` 编译 → 在 `deploy/stage/` 下 `npm ci --omit=dev` 装一份纯生产依赖(不污染本机 `node_modules`)→ 拷 `dist/` → 打成 tar.gz。所有运行时依赖都是纯 JS,**node_modules 可跨平台拷贝**(Windows 打的包能直接在 Linux 跑)。`package.json`/lock 未变时复用已装的依赖,重打包秒级完成。
+
+**服务器上(全程不需要 npm):**
+
+```bash
+tar -xzf xiaocui-backend.tar.gz -C /opt/xiaocui
+cd /opt/xiaocui
+node dist/main.js        # 需 Node ≥ 22.5;data/ 与 uploads/ 自动创建,全新部署无需带库
+```
+
+> 要保留旧数据:先停服再拷 `data/`(WAL 模式下运行中拷贝可能漏掉 `-wal` 文件)。`deploy/` 已在 .gitignore,打包产物不会误入库。
+
+### 4. 启动前端(端口 5173)
 
 ```bash
 # 在项目根目录
@@ -147,9 +173,10 @@ npm run dev
 
 前端默认通过 Vite 代理把 `/api` 转发到 `http://127.0.0.1:8080`,无需额外配置 CORS。
 
-### 4.(可选)配置 AI 模型
+### 5.(可选)配置 AI 模型
 
 首次打开后,进入 **设置 → AI 模型设置**:
+
 - 服务地址(默认 `https://api.deepseek.com`)
 - 模型名称(默认 `deepseek-v4-flash`)
 - API Key(留空表示不修改,已保存会显示掩码)
@@ -190,6 +217,7 @@ npm run dev
 - [ADR-002: 提醒即审计事件](./docs/adr-002-reminder-as-audit-event.md)
 - [ADR-003: Excel 状态以"列完整度"为依据](./docs/adr-003-excel-status-by-column-completeness.md)
 - [ADR-004: AI 辅助生成催办](./docs/adr-004-ai-assisted-followup-generation.md)
+- [ADR-005: 后端迁移 NestJS](./docs/adr-005-backend-nestjs.md)
 
 ## 🔌 REST API 概览
 
