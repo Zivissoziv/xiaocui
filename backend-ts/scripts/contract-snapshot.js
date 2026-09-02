@@ -83,7 +83,7 @@ const probes = [
     fields: { mode: 'bogus' },
   },
   { name: 'session-not-found', method: 'GET', path: '/api/analysis-sessions/999999' },
-  { name: 'item-not-found', method: 'PATCH', path: '/followup-items/999999', json: { messageFinal: 'x' } },
+  { name: 'item-not-found', method: 'PATCH', path: '/api/followup-items/999999', json: { messageFinal: 'x' } },
   { name: 'unmatched-api-route', method: 'GET', path: '/api/definitely-not-exist' },
   { name: 'unmatched-root-route', method: 'GET', path: '/definitely-not-exist' },
 
@@ -128,7 +128,7 @@ const probes = [
   // ---------- 写操作：会话与事项 ----------
   { name: 'patch-session-meta', method: 'PATCH', path: '/api/analysis-sessions/1000', json: { title: '契约快照标题' } },
   { name: 'get-session-after-patch', method: 'GET', path: '/api/analysis-sessions/1000' },
-  { name: 'patch-followup-item', method: 'PATCH', path: '/followup-items/1003', json: { messageFinal: '契约快照文案' } },
+  { name: 'patch-followup-item', method: 'PATCH', path: '/api/followup-items/1003', json: { messageFinal: '契约快照文案' } },
   { name: 'get-followup-items-after-patch', method: 'GET', path: '/api/analysis-sessions/1000/followup-items' },
   { name: 'send-all', method: 'POST', path: '/api/analysis-sessions/1000/followup-tasks/send', json: {} },
   { name: 'get-reminder-events-after-send', method: 'GET', path: '/api/analysis-sessions/1000/reminder-events' },
@@ -159,7 +159,7 @@ const probes = [
 
   // ---------- 收尾 ----------
   { name: 'delete-created-session', method: 'DELETE', path: '/api/analysis-sessions/{newSessionId}' },
-  { name: 'delete-followup-item', method: 'DELETE', path: '/followup-items/1015' },
+  { name: 'delete-followup-item', method: 'DELETE', path: '/api/followup-items/1015' },
   { name: 'get-followup-items-final', method: 'GET', path: '/api/analysis-sessions/1000/followup-items' },
   { name: 'list-sessions-final', method: 'GET', path: '/api/analysis-sessions' },
 

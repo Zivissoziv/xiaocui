@@ -19,7 +19,9 @@
 将后端从 Express 手写分层迁移到 **NestJS 12**（Express 5 内核），业务逻辑零改动，只改结构：
 
 - 8 个可注入 provider：Database、Repository、Settings、AddressBook、Contact、AiRouting、Followup、Session（对应原 db/repository/settings/addressBook/contact/aiRouting/followupService/sessionService 模块）。
-- 4 个控制器覆盖 25 条路由；`/followup-items/:itemId` 保持无 `/api` 前缀的原始契约。
+- 4 个控制器覆盖 25 条路由；`/api/followup-items/:itemId` 保持带 `/api` 前缀的原始契约（Java 版类级 `@RequestMapping("/api")` + 方法级 `/followup-items/{itemId}`）。
+
+> **2026-09-02 修正记录**：Express 版早期移植时误把 `followup-items` 的 `/api` 前缀丢掉（其余路由均带前缀），NestJS 迁移照搬了该错误，契约快照又按错误路径录制（47 项全绿掩盖回归）。前端 `followupApi.ts` 始终请求 `/api/followup-items/{id}`，导致新建向导「确认创建」与详情页编辑/删除人员全部 404。已改回 `@Controller('api/followup-items')` 并同步回录快照探针路径。教训：契约快照的探针路径必须来自 Java 版原始契约，而非上一版 TS 实现。
 - 全局异常过滤器，保持 `400 + {message}` 错误格式契约。
 - 纯函数模块（draftBuilder / tableProfile / ruleBased / sender / workbook / openai）保持普通模块——DI 服务于可替换的副作用，纯函数不需要。
 - 数据层保留 `node:sqlite` + 手写 SQL（Prisma/TypeORM 不支持内置 sqlite；将来换 PostgreSQL 只动 Repository 一层）。
