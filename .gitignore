@@ -29,3 +29,6 @@ backend-ts/uploads/
 
 # Java 版后端备份包（已迁移至 backend-ts，本地保留）
 java-backend-backup-*.tar.gz
+
+# 契约测试沙箱（固定件数据库与临时工作副本，不入库）
+backend-ts/.contract/

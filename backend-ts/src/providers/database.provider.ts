@@ -1,19 +1,23 @@
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { DatabaseSync } from 'node:sqlite';
 import * as fs from 'fs';
 import * as path from 'path';
-import { config } from './config';
-
-fs.mkdirSync(config.dataDir, { recursive: true });
+import { config } from '../config';
 
 /**
- * SQLite 数据库。表结构与 Java 版 schema.sql 一致（类型换成 SQLite 等价类型），
+ * SQLite 数据库连接。表结构与 Java 版 schema.sql 一致（类型换成 SQLite 等价类型），
  * 复杂结构（画像 / 分析结果 / 缺项集合）同样以 JSON 字符串存放。
+ * 由 Nest 生命周期管理：应用启动时建表，关闭时 checkpoint + close。
  */
-export const db = new DatabaseSync(path.join(config.dataDir, 'ai_followup.db'));
+@Injectable()
+export class DatabaseProvider implements OnModuleDestroy {
+  readonly db: DatabaseSync;
 
-db.exec('PRAGMA journal_mode = WAL;');
-
-db.exec(`
+  constructor() {
+    fs.mkdirSync(config.dataDir, { recursive: true });
+    this.db = new DatabaseSync(path.join(config.dataDir, 'ai_followup.db'));
+    this.db.exec('PRAGMA journal_mode = WAL;');
+    this.db.exec(`
 CREATE TABLE IF NOT EXISTS id_counter (
   name TEXT PRIMARY KEY,
   next_val INTEGER NOT NULL
@@ -148,6 +152,17 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_session ON sheet_snapshots (session_id)
 CREATE INDEX IF NOT EXISTS idx_analyses_session ON ai_table_analyses (session_id);
 CREATE INDEX IF NOT EXISTS idx_address_book_name ON address_book_contacts (name);
 `);
+  }
+
+  onModuleDestroy(): void {
+    try {
+      this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    } catch {
+      // 关闭时尽力 checkpoint，失败不阻断关闭流程
+    }
+    this.db.close();
+  }
+}
 
 /** JSON 列的安全解析，解析失败或空值时返回 fallback。 */
 export function readJson<T>(raw: string | null | undefined, fallback: T): T {

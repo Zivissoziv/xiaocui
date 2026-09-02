@@ -51,7 +51,7 @@ AI 告诉你"识别到的负责人列是 X,待补充字段是合同金额、预�
 | 端 | 技术 |
 | --- | --- |
 | **前端** | Vue 3 · TypeScript · Vite 6 · Pinia · Vue Router 4 · Element Plus |
-| **后端** | Node.js 22 · TypeScript · Express 4 · multer · SheetJS · `node:sqlite`（内置 SQLite） |
+| **后端** | Node.js 22 · TypeScript · NestJS 12（Express 5 内核）· SheetJS · `node:sqlite`（内置 SQLite） |
 | **AI** | OpenAI 兼容 API(默认指向 DeepSeek `deepseek-v4-flash`),失败时回退规则引擎 |
 
 ## 📁 项目结构
@@ -71,22 +71,19 @@ xiaocui/
 │   ├── index.html             # Vite 入口
 │   ├── package.json
 │   └── vite.config.ts         # dev 代理:/api → 127.0.0.1:8080
-├── backend-ts/                # 后端(TypeScript + Express)
+├── backend-ts/                # 后端(NestJS 12 + TypeScript)
 │   └── src/
-│       ├── index.ts           # 入口(端口 8080)
-│       ├── app.ts             # REST 路由 + 异常处理
-│       ├── repository.ts      # SQLite 数据访问层(node:sqlite)
+│       ├── main.ts            # NestJS 入口(端口 8080)
+│       ├── app.module.ts      # 根模块
+│       ├── controllers/       # REST 控制器(25 路由,与 Java 版契约一致)
+│       ├── providers/         # 可注入服务:Database/Repository/Settings/AddressBook/
+│       │                      #   Contact/AiRouting/Followup/Session
+│       ├── filters/           # 全局异常过滤器(统一 400 + {message})
 │       ├── workbook.ts        # Excel 解析(表头探测/合并单元格下推)
 │       ├── tableProfile.ts    # 表头与字段画像
 │       ├── ruleBased.ts       # 规则版 AI 识列
 │       ├── openAiAnalysis.ts  # OpenAI 兼容模型识列
-│       ├── aiRouting.ts       # AI/规则路由降级
 │       ├── draftBuilder.ts    # 催办文案生成
-│       ├── followupService.ts # 催办任务、条目、对账、发送
-│       ├── sessionService.ts  # 分析会话
-│       ├── contact.ts         # 联系人匹配
-│       ├── addressBook.ts     # 通讯录
-│       ├── settings.ts        # AI 设置
 │       └── sender.ts          # 发送器(当前为 manual 复制)
 ├── docs/                      # 设计文档 & 截图
 │   ├── mvp-technical-design.md
@@ -114,17 +111,29 @@ npm install
 
 ### 2. 启动后端(端口 8080)
 
+**开发模式(推荐)**——改完 `src/` 下的 TS 代码会自动重新编译并重启服务:
+
 ```bash
 cd backend-ts
 npm install
-npx tsc
-node dist/index.js
+npm run dev
+```
+
+**生产/一次性启动**——手动编译后运行:
+
+```bash
+cd backend-ts
+npm install
+npm run build   # 等价于 npx tsc
+npm start       # 等价于 node dist/main.js
 ```
 
 后端启动后会:
 - 在 `backend-ts/data/ai_followup.db` 创建 SQLite 文件数据库
 - 在 `backend-ts/uploads/` 存放上传的 Excel
-- 在 `http://127.0.0.1:8080/api/...` 提供 REST API(与原 Java 版契约一致)
+- 在 `http://127.0.0.1:8080/api/...` 提供 REST API(与 Java 版/Express 版契约一致,重构后经 47 个探针逐条比对验证)
+
+> 换端口:`PORT=3001 npm run dev`。上传目录、数据目录同样支持 `UPLOAD_DIR` / `DATA_DIR` 环境变量覆盖。
 
 ### 3. 启动前端(端口 5173)
 
