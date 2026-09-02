@@ -6,6 +6,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
+    "build:prod": "node scripts/build-prod.js",
     "start": "node dist/main.js",
     "dev": "node scripts/dev.js"
   },
