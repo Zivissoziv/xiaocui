@@ -11,7 +11,7 @@
  *   - 上述名字及 --members 列出的标识符，调用处自动加 this. 前缀
  *
  * 用法：
- *   node scripts/to-provider.js <源文件> <目标文件> \
+ *   node scripts/archive/to-provider.js <源文件> <目标文件> \
  *     --class RepositoryService --members db,readJson,writeJson \
  *     --header /tmp/header.txt
  *
@@ -38,7 +38,7 @@ const args = parseArgs(process.argv.slice(2));
 const [srcPath, destPath] = args._;
 
 if (!srcPath || !destPath || !args.class || !args.header) {
-  console.error('用法：node scripts/to-provider.js <源> <目标> --class <类名> --header <头文件> [--members a,b]');
+  console.error('用法：node scripts/archive/to-provider.js <源> <目标> --class <类名> --header <头文件> [--members a,b]');
   process.exit(2);
 }
 

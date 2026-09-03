@@ -1,11 +1,11 @@
-import { ColumnProfile, SheetData, WorkbookProfile, WorkbookSnapshot } from './types';
+import { ColumnProfile, SheetData, WorkbookProfile, WorkbookSnapshot } from '../../common/types';
 
 /** 列画像：统计每列的非空率、唯一值与样例，供规则识列与 AI 提示词使用。 */
 export function profile(snapshot: WorkbookSnapshot): WorkbookProfile {
   return { fileName: snapshot.fileName, sheets: snapshot.sheets.map(profileSheet) };
 }
 
-function profileSheet(sheet: SheetData): import('./types').SheetProfile {
+function profileSheet(sheet: SheetData): import('../../common/types').SheetProfile {
   const columns: ColumnProfile[] = [];
   for (const header of sheet.headers) {
     const values = sheet.rows

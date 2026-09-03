@@ -1,23 +1,29 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { DatabaseSync } from 'node:sqlite';
+import Database from 'better-sqlite3';
+import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
-import { config } from '../config';
+import { config } from '../common/config';
+import * as schema from './schema';
 
 /**
- * SQLite 数据库连接。表结构与 Java 版 schema.sql 一致（类型换成 SQLite 等价类型），
+ * SQLite 数据库连接（better-sqlite3 + Drizzle ORM）。
+ * 表结构与 Java 版 schema.sql 一致（类型换成 SQLite 等价类型），Drizzle 映射见 schema.ts。
  * 复杂结构（画像 / 分析结果 / 缺项集合）同样以 JSON 字符串存放。
+ * 建表 DDL 保留 IF NOT EXISTS 幂等初始化：已有 data/ 直接沿用，无需 drizzle-kit 迁移。
  * 由 Nest 生命周期管理：应用启动时建表，关闭时 checkpoint + close。
  */
 @Injectable()
 export class DatabaseProvider implements OnModuleDestroy {
-  readonly db: DatabaseSync;
+  readonly sqlite: Database.Database;
+  readonly db: BetterSQLite3Database<typeof schema>;
 
   constructor() {
     fs.mkdirSync(config.dataDir, { recursive: true });
-    this.db = new DatabaseSync(path.join(config.dataDir, 'ai_followup.db'));
-    this.db.exec('PRAGMA journal_mode = WAL;');
-    this.db.exec(`
+    this.sqlite = new Database(path.join(config.dataDir, 'ai_followup.db'));
+    this.sqlite.pragma('journal_mode = WAL');
+    this.db = drizzle(this.sqlite, { schema });
+    this.sqlite.exec(`
 CREATE TABLE IF NOT EXISTS id_counter (
   name TEXT PRIMARY KEY,
   next_val INTEGER NOT NULL
@@ -156,11 +162,11 @@ CREATE INDEX IF NOT EXISTS idx_address_book_name ON address_book_contacts (name)
 
   onModuleDestroy(): void {
     try {
-      this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+      this.sqlite.pragma('wal_checkpoint(TRUNCATE)');
     } catch {
       // 关闭时尽力 checkpoint，失败不阻断关闭流程
     }
-    this.db.close();
+    this.sqlite.close();
   }
 }
 

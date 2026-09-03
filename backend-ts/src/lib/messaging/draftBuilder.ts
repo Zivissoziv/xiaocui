@@ -1,4 +1,4 @@
-import { ColumnPlan, FollowupDraft, SheetData } from './types';
+import { ColumnPlan, FollowupDraft, SheetData } from '../../common/types';
 
 /**
  * 确定性的缺项判定与聚合（等价 Java 版 DraftBuilder）。

@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseSync } from 'node:sqlite';
-import { AiSettings, AiSettingsView, HttpError } from '../types';
-import { DatabaseProvider } from './database.provider';
-import { nowStr } from '../util';
-import { callModel } from '../openai';
+import { eq } from 'drizzle-orm';
+import { AiSettings, AiSettingsView, HttpError } from '../common/types';
+import { DatabaseProvider } from '../database/database.provider';
+import * as schema from '../database/schema';
+import { nowStr } from '../common/util';
+import { callModel } from '../lib/ai/openai';
 
 @Injectable()
 export class SettingsService {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseProvider['db'];
   private cache: AiSettings | null = null;
 
   constructor(dbProvider: DatabaseProvider) {
@@ -96,27 +97,33 @@ export class SettingsService {
   }
 
   private read(key: string, fallback: string): string {
-    const row = this.db.prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?').get(key) as
-      | { setting_value: string | null }
-      | undefined;
-    return row && row.setting_value !== null ? row.setting_value : fallback;
+    const row = this.readRow(key);
+    return row && row.settingValue !== null ? row.settingValue : fallback;
   }
 
   private readBool(key: string, fallback: boolean): boolean {
-    const row = this.db.prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?').get(key) as
-      | { setting_value: string | null }
-      | undefined;
-    return row && row.setting_value !== null ? row.setting_value === 'true' : fallback;
+    const row = this.readRow(key);
+    return row && row.settingValue !== null ? row.settingValue === 'true' : fallback;
+  }
+
+  private readRow(key: string): { settingValue: string | null } | undefined {
+    return this.db
+      .select({ settingValue: schema.appSettings.settingValue })
+      .from(schema.appSettings)
+      .where(eq(schema.appSettings.settingKey, key))
+      .get();
   }
 
   private write(key: string, value: string): void {
-    const existing = this.db.prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?').get(key);
     const now = nowStr();
-    if (!existing) {
-      this.db.prepare('INSERT INTO app_settings(setting_key, setting_value, updated_at) VALUES(?, ?, ?)').run(key, value, now);
-    } else {
-      this.db.prepare('UPDATE app_settings SET setting_value = ?, updated_at = ? WHERE setting_key = ?').run(value, now, key);
-    }
+    this.db
+      .insert(schema.appSettings)
+      .values({ settingKey: key, settingValue: value, updatedAt: now })
+      .onConflictDoUpdate({
+        target: schema.appSettings.settingKey,
+        set: { settingValue: value, updatedAt: now },
+      })
+      .run();
   }
 
   private mask(apiKey: string): string {

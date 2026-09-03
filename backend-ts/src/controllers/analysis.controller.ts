@@ -11,11 +11,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { HttpError, SendRequest, UpdateFollowupItemRequest } from '../types';
-import { fixFileName, isBlank } from '../util';
+import { HttpError, SendRequest, UpdateFollowupItemRequest } from '../common/types';
+import { fixFileName, isBlank } from '../common/util';
 import { SessionService } from '../providers/session.service';
 import { FollowupService } from '../providers/followup.service';
-import { RepositoryService } from '../providers/repository.service';
+import { RepositoryService } from '../database/repository.service';
 
 /** 与 Java 版 spring.servlet.multipart.max-file-size=10MB 一致。 */
 const FILE_LIMIT = 10 * 1024 * 1024;

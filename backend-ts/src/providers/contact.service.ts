@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AddressBookEntry, ContactMatch, FollowupDraft } from '../types';
+import { AddressBookEntry, ContactMatch, FollowupDraft } from '../common/types';
 import { AddressBookService } from './address-book.service';
 
 @Injectable()

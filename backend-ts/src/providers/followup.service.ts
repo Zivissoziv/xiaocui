@@ -11,11 +11,11 @@ import {
   SendRequest,
   SessionDetail,
   UpdateFollowupItemRequest,
-} from '../types';
-import * as sender from '../sender';
-import * as draftBuilder from '../draftBuilder';
-import { firstNonBlank, isBlank, nowStr } from '../util';
-import { RepositoryService } from './repository.service';
+} from '../common/types';
+import * as sender from '../lib/messaging/sender';
+import * as draftBuilder from '../lib/messaging/draftBuilder';
+import { firstNonBlank, isBlank, nowStr } from '../common/util';
+import { RepositoryService } from '../database/repository.service';
 import { ContactService } from './contact.service';
 import { AiRoutingService } from './ai-routing.service';
 

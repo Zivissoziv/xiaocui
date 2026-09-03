@@ -5,10 +5,10 @@ import {
   FollowupDraft,
   WorkbookProfile,
   WorkbookSnapshot,
-} from '../types';
+} from '../common/types';
 import { SettingsService } from './settings.service';
-import * as openAiAnalysis from '../openAiAnalysis';
-import * as ruleBased from '../ruleBased';
+import * as openAiAnalysis from '../lib/ai/openAiAnalysis';
+import * as ruleBased from '../lib/ai/ruleBased';
 
 @Injectable()
 export class AiRoutingService {

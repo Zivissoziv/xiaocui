@@ -1,4 +1,4 @@
-import { AiSettings } from './types';
+import { AiSettings } from '../../common/types';
 
 /**
  * OpenAI 兼容协议对话客户端（等价 Java 版 AiModelFactory + OpenAiChatModel.call）。

@@ -3,7 +3,7 @@ import express from 'express';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
-import { config } from './config';
+import { config } from './common/config';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {

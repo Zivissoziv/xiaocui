@@ -1,9 +1,9 @@
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
-import { SheetData, RowData, WorkbookSnapshot, HttpError } from './types';
-import { config } from './config';
-import { sha256, nowStr } from './util';
+import { SheetData, RowData, WorkbookSnapshot, HttpError } from '../../common/types';
+import { config } from '../../common/config';
+import { sha256, nowStr } from '../../common/util';
 
 /** 快照 id：与 Java 版一样从 1000 起，仅用于 snapshot 记录，与业务 id 无关。 */
 let snapshotIds = 1000;

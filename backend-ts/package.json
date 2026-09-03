@@ -2,7 +2,7 @@
   "name": "ai-followup-backend-ts",
   "version": "0.1.0",
   "private": true,
-  "description": "xiaocui 后端（NestJS 12 + TypeScript + SQLite，接口契约与 Java 版/Express 版一致）",
+  "description": "xiaocui 后端（NestJS 12 + TypeScript + better-sqlite3/Drizzle SQLite，接口契约与 Java 版/Express 版一致）",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
@@ -14,12 +14,15 @@
     "@nestjs/common": "^12.0.1",
     "@nestjs/core": "^12.0.1",
     "@nestjs/platform-express": "^12.0.1",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/express": "^5.0.6",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.10.0",

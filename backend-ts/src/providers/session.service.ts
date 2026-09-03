@@ -6,11 +6,11 @@ import {
   ReconcilePreview,
   SessionDetail,
   UpdateSessionMetaRequest,
-} from '../types';
-import * as workbookParser from '../workbook';
-import * as tableProfiler from '../tableProfile';
-import { nowStr } from '../util';
-import { RepositoryService } from './repository.service';
+} from '../common/types';
+import * as workbookParser from '../lib/excel/workbook';
+import * as tableProfiler from '../lib/excel/tableProfile';
+import { nowStr } from '../common/util';
+import { RepositoryService } from '../database/repository.service';
 import { FollowupService } from './followup.service';
 import { AiRoutingService } from './ai-routing.service';
 

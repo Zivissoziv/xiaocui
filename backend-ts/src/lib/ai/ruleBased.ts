@@ -7,8 +7,8 @@ import {
   SheetProfile,
   WorkbookProfile,
   WorkbookSnapshot,
-} from './types';
-import * as draftBuilder from './draftBuilder';
+} from '../../common/types';
+import * as draftBuilder from '../messaging/draftBuilder';
 
 /**
  * 关键词规则实现（等价 Java 版 RuleBasedAiAnalysisService）。

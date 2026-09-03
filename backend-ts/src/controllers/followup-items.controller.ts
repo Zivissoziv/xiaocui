@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Param, Patch } from '@nestjs/common';
-import { UpdateFollowupItemRequest } from '../types';
+import { UpdateFollowupItemRequest } from '../common/types';
 import { FollowupService } from '../providers/followup.service';
 
 /**

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseSync } from 'node:sqlite';
-import { AddressBookEntry, HttpError, ImportResult, MatchedContact } from '../types';
-import { DatabaseProvider } from './database.provider';
-import { RepositoryService } from './repository.service';
-import { nowStr } from '../util';
+import { desc, eq } from 'drizzle-orm';
+import { AddressBookEntry, HttpError, ImportResult, MatchedContact } from '../common/types';
+import { DatabaseProvider } from '../database/database.provider';
+import * as schema from '../database/schema';
+import { RepositoryService } from '../database/repository.service';
+import { nowStr } from '../common/util';
 import * as XLSX from 'xlsx';
 
 interface ParsedRow {
@@ -16,7 +17,7 @@ interface ParsedRow {
 
 @Injectable()
 export class AddressBookService {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseProvider['db'];
 
   constructor(dbProvider: DatabaseProvider, private readonly repository: RepositoryService) {
     this.db = dbProvider.db;
@@ -33,26 +34,12 @@ export class AddressBookService {
   private readonly EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   private readonly HEADERS = ['姓名', '邮箱', '部门', '手机'];
 
-  private rowToEntry(row: any): AddressBookEntry {
-    return {
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      department: row.department,
-      phone: row.phone,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
-  }
-
   list(): AddressBookEntry[] {
-    const rows = this.db
-      .prepare(
-        `SELECT id, name, email, department, phone, created_at, updated_at
-         FROM address_book_contacts ORDER BY updated_at DESC, id DESC`
-      )
-      .all() as any[];
-    return rows.map(this.rowToEntry);
+    return this.db
+      .select()
+      .from(schema.addressBookContacts)
+      .orderBy(desc(schema.addressBookContacts.updatedAt), desc(schema.addressBookContacts.id))
+      .all();
   }
 
   create(request: { name?: string | null; email?: string | null; department?: string | null; phone?: string | null }): AddressBookEntry {
@@ -60,10 +47,18 @@ export class AddressBookService {
     const email = this.requireEmail(request.email ?? null);
     const now = nowStr();
     const id = this.nextId();
-    this.db.prepare(
-      `INSERT INTO address_book_contacts(id, name, email, department, phone, created_at, updated_at)
-       VALUES(?, ?, ?, ?, ?, ?, ?)`
-    ).run(id, name, email, this.blank(request.department ?? null), this.blank(request.phone ?? null), now, now);
+    this.db
+      .insert(schema.addressBookContacts)
+      .values({
+        id,
+        name,
+        email,
+        department: this.blank(request.department ?? null),
+        phone: this.blank(request.phone ?? null),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
     return this.find(id);
   }
 
@@ -80,41 +75,43 @@ export class AddressBookService {
     const department = request.department === null || request.department === undefined ? current.department : this.blank(request.department);
     const phone = request.phone === null || request.phone === undefined ? current.phone : this.blank(request.phone);
     const now = nowStr();
-    this.db.prepare(
-      'UPDATE address_book_contacts SET email = ?, department = ?, phone = ?, updated_at = ? WHERE id = ?'
-    ).run(email, department, phone, now, id);
+    this.db
+      .update(schema.addressBookContacts)
+      .set({ email, department, phone, updatedAt: now })
+      .where(eq(schema.addressBookContacts.id, id))
+      .run();
     if (name !== current.name) {
-      this.db.prepare('UPDATE address_book_contacts SET name = ?, updated_at = ? WHERE id = ?').run(name, now, id);
+      this.db
+        .update(schema.addressBookContacts)
+        .set({ name, updatedAt: now })
+        .where(eq(schema.addressBookContacts.id, id))
+        .run();
     }
     return this.find(id);
   }
 
   remove(id: number): void {
     this.find(id);
-    this.db.prepare('DELETE FROM address_book_contacts WHERE id = ?').run(id);
+    this.db.delete(schema.addressBookContacts).where(eq(schema.addressBookContacts.id, id)).run();
   }
 
   find(id: number): AddressBookEntry {
-    const row = this.db
-      .prepare(
-        `SELECT id, name, email, department, phone, created_at, updated_at
-         FROM address_book_contacts WHERE id = ?`
-      )
-      .get(id) as any;
+    const row = this.db.select().from(schema.addressBookContacts).where(eq(schema.addressBookContacts.id, id)).get();
     if (!row) throw new HttpError('通讯录条目不存在');
-    return this.rowToEntry(row);
+    return row;
   }
 
   /** 按姓名查通讯录，供催办任务生成时自动补全邮箱。同名取更新时间最新的一条。 */
   findByName(name: string): AddressBookEntry | null {
     if (this.isBlank(name)) return null;
-    const row = this.db
-      .prepare(
-        `SELECT id, name, email, department, phone, created_at, updated_at
-         FROM address_book_contacts WHERE name = ? ORDER BY updated_at DESC, id DESC LIMIT 1`
-      )
-      .get(this.normalize(name)) as any;
-    return row ? this.rowToEntry(row) : null;
+    return (
+      this.db
+        .select()
+        .from(schema.addressBookContacts)
+        .where(eq(schema.addressBookContacts.name, this.normalize(name)))
+        .orderBy(desc(schema.addressBookContacts.updatedAt), desc(schema.addressBookContacts.id))
+        .get() ?? null
+    );
   }
 
   /** 批量匹配：返回每个姓名对应的通讯录邮箱，未命中的也返回（matched=false），便于前端提示。 */
@@ -155,15 +152,25 @@ export class AddressBookService {
       const existing = this.findByName(row.name);
       if (!existing) {
         const now = nowStr();
-        this.db.prepare(
-          `INSERT INTO address_book_contacts(id, name, email, department, phone, created_at, updated_at)
-           VALUES(?, ?, ?, ?, ?, ?, ?)`
-        ).run(this.nextId(), row.name, row.email, row.department, row.phone, now, now);
+        this.db
+          .insert(schema.addressBookContacts)
+          .values({
+            id: this.nextId(),
+            name: row.name,
+            email: row.email,
+            department: row.department,
+            phone: row.phone,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
         added++;
       } else if (overwrite) {
-        this.db.prepare(
-          'UPDATE address_book_contacts SET email = ?, department = ?, phone = ?, updated_at = ? WHERE id = ?'
-        ).run(row.email, row.department, row.phone, nowStr(), existing.id);
+        this.db
+          .update(schema.addressBookContacts)
+          .set({ email: row.email, department: row.department, phone: row.phone, updatedAt: nowStr() })
+          .where(eq(schema.addressBookContacts.id, existing.id))
+          .run();
         updated++;
       } else {
         skipped++;

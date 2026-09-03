@@ -47,5 +47,5 @@
 代价：
 
 - 框架带来约 30 个传递依赖、装饰器编译开销（`experimentalDecorators` / `emitDecoratorMetadata`）。
-- 迁移期新旧入口并存过一段；`scripts/to-provider.js` 转换脚本属一次性工具，保留备用。
+- 迁移期新旧入口并存过一段；`scripts/archive/to-provider.js` 转换脚本属一次性工具，保留备用。
 - 已知遗留：`xlsx@0.18.5` 有高危漏洞且 npm 无修复版（SheetJS 已下架 npm，修复版在官方 CDN），换源需评估，暂不阻塞。

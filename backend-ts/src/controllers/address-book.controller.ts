@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { HttpError } from '../types';
+import { HttpError } from '../common/types';
 import { AddressBookService } from '../providers/address-book.service';
 
 /** 与 Java 版 spring.servlet.multipart.max-file-size=10MB 一致。 */

@@ -10,13 +10,16 @@
  *   3) 拷贝 dist/（可选 data/）
  *   4) tar 打包为 deploy/xiaocui-backend.tar.gz
  *
- * 为什么能"打包 node_modules 带走"：
- *   本项目所有运行时依赖（@nestjs/*、express、rxjs、xlsx、reflect-metadata）
- *   都是纯 JS 实现，没有原生模块，Windows 上打包的 node_modules 可直接在
- *   Linux 服务器运行，无需重新编译。若将来引入原生模块（better-sqlite3 /
- *   sharp / bcrypt 等），此方案失效，必须在目标平台安装或改用 Docker。
+ * 为什么能"打包 node_modules 带走"——以及现在的限制：
+ *   大部分运行时依赖（@nestjs/*、express、rxjs、xlsx、reflect-metadata、drizzle-orm）
+ *   都是纯 JS，Windows 上打包可直接在 Linux 运行。但 2026-09-03 起 SQLite 换成
+ *   better-sqlite3（C++ 原生模块），其 .node 二进制与平台绑定：
+ *     - Windows 打包 → 只能在 Windows 服务器跑；
+ *     - Linux 服务器部署 → 在 Linux 环境（或同平台机器）npm ci 重新安装，
+ *       或改用 Docker。原生模块约 2MB（prebuild），无需编译工具链。
  *
- * 服务器要求：Node >= 22.5（依赖内置 node:sqlite）。
+ * 服务器要求：无 Node 版本硬性要求（better-sqlite3 支持 Node 18/20/22+，
+ * 不再依赖内置 node:sqlite 的 Node >= 22.5）。
  * 全新部署无需带 data/：启动时自动建目录、建表、建索引。
  */
 const { spawn } = require('node:child_process');
@@ -135,6 +138,8 @@ async function main() {
   console.log('\n[build-prod] 完成 ✅');
   console.log(`  包文件    : deploy/xiaocui-backend.tar.gz（${size} MB）`);
   console.log(`  本地验证  : cd deploy/stage && node dist/main.js`);
+  console.log(`  ⚠ better-sqlite3 是原生模块：本包内的 .node 二进制仅在 ${process.platform} 平台可用，`);
+  console.log(`    跨平台部署请在目标平台重新 npm ci，或改用 Docker。`);
   console.log(`  服务器部署:`);
   console.log(`    mkdir -p /opt/xiaocui && tar -xzf xiaocui-backend.tar.gz -C /opt/xiaocui`);
   console.log(`    cd /opt/xiaocui && node dist/main.js`);

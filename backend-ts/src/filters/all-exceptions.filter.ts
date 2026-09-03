@@ -1,6 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, NotFoundException } from '@nestjs/common';
 import { Response } from 'express';
-import { HttpError } from '../types';
+import { HttpError } from '../common/types';
 
 /**
  * 全局异常处理（等价原 Express 版 ApiExceptionHandler / 404 中间件）：

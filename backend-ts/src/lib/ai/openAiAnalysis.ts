@@ -8,9 +8,9 @@ import {
   SheetProfile,
   WorkbookProfile,
   WorkbookSnapshot,
-} from './types';
+} from '../../common/types';
 import { callModel } from './openai';
-import * as draftBuilder from './draftBuilder';
+import * as draftBuilder from '../messaging/draftBuilder';
 import * as ruleBased from './ruleBased';
 
 /**

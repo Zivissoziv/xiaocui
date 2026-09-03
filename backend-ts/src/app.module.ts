@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { DatabaseProvider } from './providers/database.provider';
-import { RepositoryService } from './providers/repository.service';
+import { DatabaseProvider } from './database/database.provider';
+import { RepositoryService } from './database/repository.service';
 import { SettingsService } from './providers/settings.service';
 import { AddressBookService } from './providers/address-book.service';
 import { ContactService } from './providers/contact.service';
