@@ -100,11 +100,9 @@ xiaocui/
 │   ├── .contract/             # 契约基线/快照与沙箱库(已 gitignore)
 │   └── deploy/                # 打包产物目录(已 gitignore)
 ├── docs/                      # 设计文档 & 截图
-│   ├── mvp-technical-design.md
-│   ├── architecture-recommendation.md
-│   ├── domain-model.md
-│   ├── reminder-tool-plan.md
-│   ├── adr-001 ~ adr-006      # 关键架构决策记录
+│   ├── adr-001 ~ adr-006      # 架构决策记录
+│   ├── design-history-summary.md  # 早期规划存档(由 5 份旧文档合并)
+│   ├── motion-spec.md         # 动效规范
 │   └── screenshots/           # README 用的截图
 └── 测试数据-项目信息收集.xlsx
 ```
@@ -221,10 +219,7 @@ npm run dev
 - **本机优先**:`backend-ts/uploads` + SQLite 文件库,Excel 不出本机,适合内部催办这种敏感数据。
 
 详细设计见 [`docs/`](./docs/):
-- [MVP 技术设计](./docs/mvp-technical-design.md)
-- [架构推荐](./docs/architecture-recommendation.md)
-- [领域模型](./docs/domain-model.md)
-- [催办工具规划](./docs/reminder-tool-plan.md)
+- [设计历史摘要(早期规划存档)](./docs/design-history-summary.md)
 - [ADR-001: 表源为先](./docs/adr-001-form-source-first.md)
 - [ADR-002: 提醒即审计事件](./docs/adr-002-reminder-as-audit-event.md)
 - [ADR-003: Excel 状态以"列完整度"为依据](./docs/adr-003-excel-status-by-column-completeness.md)
