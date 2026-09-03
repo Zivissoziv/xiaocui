@@ -51,7 +51,7 @@ AI 告诉你"识别到的负责人列是 X,待补充字段是合同金额、预�
 | 端 | 技术 |
 | --- | --- |
 | **前端** | Vue 3 · TypeScript · Vite 6 · Pinia · Vue Router 4 · Element Plus |
-| **后端** | Node.js 22 · TypeScript · NestJS 12（Express 5 内核）· SheetJS · `node:sqlite`（内置 SQLite） |
+| **后端** | Node.js 18+ · TypeScript · NestJS 12（Express 5 内核）· SheetJS · better-sqlite3 + Drizzle ORM（本地 SQLite） |
 | **AI** | OpenAI 兼容 API(默认指向 DeepSeek `deepseek-v4-flash`),失败时回退规则引擎 |
 
 ## 📁 项目结构
@@ -76,25 +76,35 @@ xiaocui/
 │   │   ├── main.ts            # NestJS 入口(端口 8080)
 │   │   ├── app.module.ts      # 根模块
 │   │   ├── controllers/       # REST 控制器(25 路由,与 Java 版契约一致)
-│   │   ├── providers/         # 可注入服务:Database/Repository/Settings/AddressBook/
-│   │   │                      #   Contact/AiRouting/Followup/Session
-│   │   ├── filters/           # 全局异常过滤器(统一 400 + {message})
-│   │   ├── workbook.ts        # Excel 解析(表头探测/合并单元格下推)
-│   │   ├── tableProfile.ts    # 表头与字段画像
-│   │   ├── ruleBased.ts       # 规则版 AI 识列
-│   │   ├── openAiAnalysis.ts  # OpenAI 兼容模型识列
-│   │   ├── draftBuilder.ts    # 催办文案生成
-│   │   └── sender.ts          # 发送器(当前为 manual 复制)
+│   │   │   ├── analysis.controller.ts        # 会话/分析/对账/发送
+│   │   │   ├── address-book.controller.ts    # 通讯录
+│   │   │   ├── followup-items.controller.ts  # 人员明细修改/删除
+│   │   │   └── settings.controller.ts        # AI 模型设置
+│   │   ├── providers/         # 业务服务:Session/Followup/AiRouting/AddressBook/Contact/Settings
+│   │   ├── database/          # 数据访问层
+│   │   │   ├── database.provider.ts  # better-sqlite3 + drizzle 初始化(幂等 DDL)
+│   │   │   ├── schema.ts             # Drizzle 表定义(10 张表)
+│   │   │   └── repository.service.ts # 会话/事项/任务/留痕 CRUD
+│   │   ├── common/            # config.ts / types.ts / util.ts(含上传文件名转码)
+│   │   ├── lib/               # 纯函数模块(无注入)
+│   │   │   ├── excel/         # workbook.ts / tableProfile.ts(解析与画像)
+│   │   │   ├── ai/            # openai.ts / openAiAnalysis.ts / ruleBased.ts
+│   │   │   └── messaging/     # draftBuilder.ts / sender.ts
+│   │   └── filters/           # 全局异常过滤器(统一 400 + {message})
 │   ├── scripts/
 │   │   ├── dev.js             # 开发热重启(tsc --watch + 自动重启)
-│   │   └── build-prod.js      # 一键生产打包(npm run build:prod)
+│   │   ├── build-prod.js      # 一键生产打包(npm run build:prod)
+│   │   ├── contract-cycle.sh / contract-snapshot.js / contract-compare.js
+│   │   │                      # 契约探针录制与比对(47 探针)
+│   │   └── archive/           # 一次性迁移脚本(H2→SQLite 等,仅供追溯)
+│   ├── .contract/             # 契约基线/快照与沙箱库(已 gitignore)
 │   └── deploy/                # 打包产物目录(已 gitignore)
 ├── docs/                      # 设计文档 & 截图
 │   ├── mvp-technical-design.md
 │   ├── architecture-recommendation.md
 │   ├── domain-model.md
 │   ├── reminder-tool-plan.md
-│   ├── adr-001 ~ adr-004      # 关键架构决策记录
+│   ├── adr-001 ~ adr-006      # 关键架构决策记录
 │   └── screenshots/           # README 用的截图
 └── 测试数据-项目信息收集.xlsx
 ```
@@ -103,7 +113,7 @@ xiaocui/
 
 ### 环境要求
 
-- **Node.js ≥ 22.5**(后端用 Node 内置 `node:sqlite`,22.5.0 才引入;22 以下无法运行,推荐 22 LTS)
+- **Node.js ≥ 18**(推荐 20/22 LTS;后端用 better-sqlite3,各版本均有预编译二进制,无需本地编译工具链)
 
 ### 1. 克隆 & 安装
 
@@ -133,9 +143,9 @@ npm start       # 等价于 node dist/main.js
 ```
 
 后端启动后会:
-- 在 `backend-ts/data/ai_followup.db` 创建 SQLite 文件数据库
+- 在 `backend-ts/data/ai_followup.db` 创建 SQLite 文件数据库(better-sqlite3 打开,表结构由 Drizzle schema 幂等初始化,旧库可直接沿用)
 - 在 `backend-ts/uploads/` 存放上传的 Excel
-- 在 `http://127.0.0.1:8080/api/...` 提供 REST API(与 Java 版/Express 版契约一致,重构后经 47 个探针逐条比对验证)
+- 在 `http://127.0.0.1:8080/api/...` 提供 REST API(与 Java 版/Express 版契约一致,迁移后经 47 个探针逐条比对验证)
 
 > 换端口:`PORT=3001 npm run dev`。上传目录、数据目录同样支持 `UPLOAD_DIR` / `DATA_DIR` 环境变量覆盖。
 
@@ -149,14 +159,16 @@ npm run build:prod              # 全新部署包(不含数据库)
 npm run build:prod -- --with-data   # 连现有 data/(SQLite 库)一起打包
 ```
 
-脚本做的事:`tsc` 编译 → 在 `deploy/stage/` 下 `npm ci --omit=dev` 装一份纯生产依赖(不污染本机 `node_modules`)→ 拷 `dist/` → 打成 tar.gz。所有运行时依赖都是纯 JS,**node_modules 可跨平台拷贝**(Windows 打的包能直接在 Linux 跑)。`package.json`/lock 未变时复用已装的依赖,重打包秒级完成。
+脚本做的事:`tsc` 编译 → 在 `deploy/stage/` 下 `npm ci --omit=dev` 装一份纯生产依赖(不污染本机 `node_modules`)→ 拷 `dist/` → 打成 tar.gz。`package.json`/lock 未变时复用已装的依赖,重打包秒级完成。
 
-**服务器上(全程不需要 npm):**
+> ⚠️ **平台绑定**:better-sqlite3 是 C++ 原生模块,打包内自带当前平台的预编译二进制,因此 **`deploy/` 产物只能部署到与打包机同平台(同 OS + 同架构)的服务器**。跨平台部署(如 Windows 打包 → Linux 服务器)需要在目标平台执行 `npm ci` 或改用 Docker,不要直接解包 tarball。
+
+**同平台服务器上(全程不需要 npm):**
 
 ```bash
 tar -xzf xiaocui-backend.tar.gz -C /opt/xiaocui
 cd /opt/xiaocui
-node dist/main.js        # 需 Node ≥ 22.5;data/ 与 uploads/ 自动创建,全新部署无需带库
+node dist/main.js        # 需 Node ≥ 18;data/ 与 uploads/ 自动创建,全新部署无需带库
 ```
 
 > 要保留旧数据:先停服再拷 `data/`(WAL 模式下运行中拷贝可能漏掉 `-wal` 文件)。`deploy/` 已在 .gitignore,打包产物不会误入库。
@@ -218,6 +230,7 @@ npm run dev
 - [ADR-003: Excel 状态以"列完整度"为依据](./docs/adr-003-excel-status-by-column-completeness.md)
 - [ADR-004: AI 辅助生成催办](./docs/adr-004-ai-assisted-followup-generation.md)
 - [ADR-005: 后端迁移 NestJS](./docs/adr-005-backend-nestjs.md)
+- [ADR-006: 存储层迁移 better-sqlite3 + Drizzle ORM](./docs/adr-006-better-sqlite3-drizzle.md)
 
 ## 🔌 REST API 概览
 
@@ -250,7 +263,7 @@ npm run dev
 
 ## 🤝 贡献
 
-欢迎提 Issue / PR。改前端请保持 Element Plus 风格,改后端请在 `docs/adr/` 下补一篇 ADR 说明动机。
+欢迎提 Issue / PR。改前端请保持 Element Plus 风格,改后端请在 `docs/` 下补一篇 `adr-0xx-*.md` 说明动机。
 
 ## 📄 License
 
